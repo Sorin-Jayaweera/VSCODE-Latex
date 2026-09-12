@@ -667,7 +667,11 @@ class Converter:
                 self.out.append("\\item[%s] %s" % (box, self.inline(content)))
             else:
                 content = mo.group(3) if mo else mu.group(2)
-                self.out.append("\\item %s" % self.inline(content))
+                rendered = self.inline(content)
+                # "\item [W] ..." would make "[W]" the bullet label.
+                if rendered.lstrip().startswith("["):
+                    rendered = "{}" + rendered
+                self.out.append("\\item %s" % rendered)
             self.i += 1
 
         self.out.append("\\end{%s}" % env)
@@ -783,18 +787,29 @@ class Converter:
         def is_block(p):
             return "\\embed" in p or "\\[" in p
 
-        joiner = " \\\\\n" if self.line_breaks else "\n"
+        def join_run(lines_in_run):
+            if not self.line_breaks:
+                return "\n".join(lines_in_run)
+            # "\\" followed by "[" or "*" is read as \\[<length>] or \\*, so a
+            # line like "[W] refers to the units of Wb" became a bogus
+            # vertical-space argument and killed the build. "\\{}" stops that.
+            out = lines_in_run[0]
+            for nxt in lines_in_run[1:]:
+                guard = "{}" if nxt.lstrip().startswith(("[", "*")) else ""
+                out += " \\\\%s\n%s" % (guard, nxt)
+            return out
+
         rendered, run = [], []
         for p in pieces:
             if is_block(p):
                 if run:
-                    rendered.append(joiner.join(run))
+                    rendered.append(join_run(run))
                     run = []
                 rendered.append(p)
             else:
                 run.append(p)
         if run:
-            rendered.append(joiner.join(run))
+            rendered.append(join_run(run))
 
         self.out.append("\n".join(rendered))
         self.out.append("")

@@ -16,6 +16,10 @@
 
 \RequirePackage{amsmath,amssymb,mathtools}
 
+% MathJax in Obsidian loads mhchem, and notes use \pu{...} (units) and
+% \ce{...} (chemistry). Without this, those notes don't build.
+\RequirePackage[version=4]{mhchem}
+
 % ---- Dirac notation -----------------------------------------------------
 % Your notes write \braket{ +z | +n } -- ONE argument with a bar inside, the
 % way MathJax's braket extension accepts it (187 of 191 uses in the vault).
@@ -37,6 +41,9 @@
   }
 \NewDocumentCommand \braket { m } { \__hmc_braket:n {#1} }
 \ExplSyntaxOff
+
+% \set{ x | x > 0 } -- MathJax's braket extension provides it.
+\providecommand{\set}[1]{\left\{ #1 \right\}}
 
 \DeclarePairedDelimiterX{\bra}[1]{\langle}{\rvert}{#1}
 \DeclarePairedDelimiterX{\ket}[1]{\lvert}{\rangle}{#1}

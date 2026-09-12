@@ -113,7 +113,19 @@ def run_latex(tex_path, work_dir, engine="lualatex", passes=2):
         tex_path.name,
     ]
 
-    rc, stdout, attempt = 0, "", 0
+    def complete_pdf(path):
+        """A fully written PDF ends with %%EOF; a fatal or aborted run doesn't."""
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 2048))
+                return size > 0 and b"%%EOF" in fh.read()
+        except OSError:
+            return False
+
+    log_path = work_dir / (tex_path.stem + ".log")
+    rc, stdout, attempt, fatal = 0, "", 0, False
     for attempt in range(1, passes + 1):
         proc = subprocess.run(
             cmd,
@@ -124,25 +136,36 @@ def run_latex(tex_path, work_dir, engine="lualatex", passes=2):
             errors="replace",
         )
         rc, stdout = proc.returncode, proc.stdout
-        if rc != 0:
+        fatal = "no output PDF file produced" in stdout or not complete_pdf(pdf)
+        if fatal:
             break
 
-    # Trust the exit status, not whether a PDF file exists: a failed pass can
-    # leave a truncated PDF behind that looks like success.
-    if rc != 0 or not pdf.exists():
-        errs = [
-            l for l in stdout.splitlines()
-            if l.startswith("!") or (".tex:" in l and "rror" in l)
-        ]
+    errs = [
+        l for l in stdout.splitlines()
+        if l.startswith("!") or (".tex:" in l and "rror" in l)
+    ]
+
+    # Fatal = no PDF, or a truncated one (which is what once looked like
+    # success but had no images). Don't leave that behind as "output".
+    if fatal:
         print("LaTeX failed (pass %d) on %s:" % (attempt, tex_path.name), file=sys.stderr)
         for e in errs[:12]:
             print("   ", e, file=sys.stderr)
         if not errs:
             print("\n".join(stdout.splitlines()[-25:]), file=sys.stderr)
-        print("    full log: %s" % (work_dir / (tex_path.stem + ".log")), file=sys.stderr)
+        print("    full log: %s" % log_path, file=sys.stderr)
         if pdf.exists():
             pdf.unlink()
         return None
+
+    # A non-zero exit with a complete PDF means nonstopmode recovered from an
+    # error (typically MathJax-only syntax). Keep the PDF, but say so.
+    if rc != 0:
+        print("  warning: %s had LaTeX errors but produced a complete PDF -- "
+              "check the flagged spots:" % tex_path.name, file=sys.stderr)
+        for e in errs[:6]:
+            print("   ", e, file=sys.stderr)
+        print("    full log: %s" % log_path, file=sys.stderr)
     return pdf
 
 
