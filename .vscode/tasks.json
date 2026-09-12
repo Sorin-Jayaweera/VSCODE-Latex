@@ -63,6 +63,15 @@
       "problemMatcher": []
     },
     {
+      "label": "Sync to GitHub now",
+      "type": "shell",
+      "command": "python",
+      "args": ["build/sync.py"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
       "label": "Check all notes convert cleanly",
       "type": "shell",
       "command": "python",

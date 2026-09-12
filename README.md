@@ -176,7 +176,40 @@ to leave out the ~194 MB of reference PDFs.
 
 ---
 
-## 7. What is where
+## 7. GitHub sync
+
+This folder is a git repository pushing to
+[Sorin-Jayaweera/VSCODE-Latex](https://github.com/Sorin-Jayaweera/VSCODE-Latex).
+
+**Automatic**: a Windows scheduled task, *HMC Notes GitHub Sync*, commits and
+pushes every 30 minutes while you're logged in.
+
+```powershell
+.\build\autosync.ps1 -Status            # is it on? when did it last run?
+.\build\autosync.ps1 -Install -Minutes 60   # change the interval
+.\build\autosync.ps1 -Remove            # turn it off
+```
+
+**Manual**, any time — task **Sync to GitHub now**, or:
+
+```bash
+python build/sync.py
+python build/sync.py --dry-run          # show what would be committed
+```
+
+`sync.py` rebases onto GitHub before pushing, so a push from another machine is
+never clobbered, and it refuses to run mid-merge rather than making a mess.
+
+> **Two things to know.** The repo is ~400 MB, because it carries 226 MB of
+> images and 194 MB of reference PDFs. That's fine for GitHub but the first
+> clone on another machine is slow; run `python build/import_vault.py --no-pdfs`
+> and re-commit if you'd rather drop the reference PDFs. Also, `core.longpaths`
+> is enabled for this repo — several of your filenames exceed Windows' 260
+> character limit and git refuses to index them otherwise.
+
+---
+
+## 8. What is where
 
 ```
 vscode latex/
@@ -201,7 +234,7 @@ vscode latex/
 
 ---
 
-## 8. Known gaps
+## 9. Known gaps
 
 - **Inline concealment doesn't exist in VS Code.** See §2. Use the preview pane
   or hover.
@@ -216,7 +249,7 @@ vscode latex/
 
 ---
 
-## 9. If something breaks
+## 10. If something breaks
 
 **A note won't compile.** Get the generated LaTeX and read the error in context:
 
