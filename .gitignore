@@ -1,0 +1,34 @@
+# ---- build output -------------------------------------------------------
+out/
+*.pdf.bak
+
+# LaTeX droppings, wherever they land
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.out
+*.nav
+*.snm
+*.vrb
+*.bbl
+*.blg
+*.idx
+*.ind
+*.ilg
+
+# .tex files generated from markdown by build/md2tex.py.
+# The .md is the source; these are regenerated on every build.
+notes/**/*.tex
+
+# ---- OS / editor --------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.icloud
+
+# ---- python -------------------------------------------------------------
+__pycache__/
+*.pyc

@@ -1,0 +1,45 @@
+// =========================================================================
+//  Keybindings for this setup.
+//
+//  VS Code keeps keybindings per-USER, not per-workspace, so these cannot be
+//  applied from the repo. Copy them in once:
+//
+//    Ctrl+Shift+P  ->  "Preferences: Open Keyboard Shortcuts (JSON)"
+//    paste these entries inside the outer [ ... ] array
+//
+//  That file already exists at:
+//    C:\Users\Sorin\AppData\Roaming\Code\User\keybindings.json
+// =========================================================================
+[
+  {
+    // Wrap a selection -- the replacement for Latex Suite's ${VISUAL}
+    // snippets (U underbrace, C cancel, S sqrt, ...).
+    // Select an expression, press this, pick from the list.
+    "key": "ctrl+alt+s",
+    "command": "editor.action.surroundWith",
+    "when": "editorHasSelection"
+  },
+  {
+    // Build the current note to PDF (runs the default build task).
+    "key": "ctrl+alt+b",
+    "command": "workbench.action.tasks.build"
+  },
+  {
+    // Jump from the cursor to that spot in the PDF.
+    "key": "ctrl+alt+j",
+    "command": "latex-workshop.synctex",
+    "when": "editorTextFocus && editorLangId == 'latex'"
+  },
+  {
+    // Open the rendered maths preview panel for the current file.
+    "key": "ctrl+alt+m",
+    "command": "latex-workshop.mathpreviewpanel",
+    "when": "editorTextFocus"
+  },
+  {
+    // Side-by-side markdown preview (built-in, renders your macros).
+    "key": "ctrl+alt+v",
+    "command": "markdown.showPreviewToSide",
+    "when": "editorLangId == 'markdown'"
+  }
+]

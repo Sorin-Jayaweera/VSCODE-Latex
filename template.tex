@@ -1,0 +1,97 @@
+% =========================================================================
+%  COPY THIS FILE to start a new note.
+%
+%  Switch the look with the class option:
+%      [dark]   Tokyo Night, matches Obsidian on screen
+%      [light]  white page, same accent colours, for printing / turning in
+% =========================================================================
+\documentclass[dark]{hmcnote}
+\usepackage{preamble}
+
+\course{Phys 116 -- Quantum Mechanics}
+
+\begin{document}
+
+\lecture{1}{Spin Angular Momentum}{2026-01-21}
+
+QM is not just a way of asking where particles are --- it is an operating
+system: polarization of light, solid state phonons, particle physics, string
+theory. Anywhere you are quantizing.
+
+\section{Stern--Gerlach}
+
+Silver is $\mathrm{Ag} = [\mathrm{Kr}]4d^{10}5s^{1}$: one unpaired electron.
+If it behaved like a spinning ball of charge we would see a smear. We see two
+discrete blobs, as if each atom carried angular momentum $\pm\frac{\hbar}{2}$.
+
+We write up as $\ket{+\vec{z}}$ or $\ket{\uparrow}$, down as $\ket{-\hat{z}}$
+or $\ket{\downarrow}$. Then
+%
+\begin{align}
+  \braket{ +z | +z } &= 1, &
+  \braket{ -z | +z } &= 0, &
+  \braket{ +z | +x } &= \sqrt{\tfrac{1}{2}}\, e^{i\delta}.
+\end{align}
+
+\begin{note}[Why complex?]
+  The inner product $\braket{ \psi | \phi } \in \C$, unlike the familiar
+  $\vec{A}\cdot\vec{B} \in \R$. That extra phase freedom is exactly what
+  produces interference.
+\end{note}
+
+\subsection{Operators}
+
+A measurement with $100\%$ probability of a given result gets its own ket.
+The projection $\ketbra{+z}{+z}$ picks that component out of any state:
+%
+\[
+  \ket{\psi} = c_{+}\ket{+\hat{z}} + c_{-}\ket{-z},
+  \qquad
+  c_{+} = \braket{ +\vec{z} | \psi }.
+\]
+
+\begin{definition}[Expectation value]
+  For an observable $\hat{A}$ in state $\ket{\psi}$,
+  $\expval{\hat{A}} = \braket{ \psi | \hat{A} | \psi }$.
+\end{definition}
+
+\begin{theorem}[Born rule]
+  $\abs{\braket{ \psi | \phi }}^{2}$ is the probability of finding state
+  $\psi$ given state $\phi$.
+\end{theorem}
+
+\begin{proof}
+  Follows from normalization $\braket{ \psi | \psi } = 1$ together with
+  completeness of $\{\ket{+z}, \ket{-z}\}$.
+\end{proof}
+
+\section{Comparison table}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+  \toprule
+  \hmctablehead{Familiar 3D vectors} & \hmctablehead{Quantum state vectors} \\
+  \midrule
+  $\vec{i}\cdot\vec{i} = 1$        & $\braket{ +z | +z } = 1$ \\
+  $\vec{i}\cdot\vec{j} = 0$        & $\braket{ -z | +z } = 0$ \\
+  $\vec{A}\cdot\vec{B} \in \R$     & $\braket{ \psi | \phi } \in \C$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\section{Your macros still work}
+
+$\bb{R}^3$, $\bvec{F} = m\bvec{a}$, $\pardx{\psi}{t}$, $\ddx{y}{x}$,
+$\norm{\bvec{v}}$, $\abs{z}$, $\curl \bvec{E}$, $\div \bvec{B} = 0$,
+$\grad \phi$, $\vspan\{v_1, v_2\}$.
+
+\begin{warning}[Watch out]
+  \verb|\div| had to be redefined --- LaTeX already uses it for $\times$-style
+  division. See \texttt{tex/preamble.sty}.
+\end{warning}
+
+% Images: drop them in an images/ folder next to this file, then
+%   \embed{Pasted image 20260121111713.png}
+% \embed[0.7\linewidth]{Pasted image 20260121111713.png}
+
+\end{document}
