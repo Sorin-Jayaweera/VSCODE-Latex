@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-build.py -- Markdown or LaTeX note  ->  PDF.
+build.py -- Markdown or LaTeX note  ->  PDF, saved next to the note.
 
-This is what the VS Code build task calls. Give it either a .md or a .tex:
-
-    python build/build.py notes/Junior/Big Quantum/Lectures/1 Spin.md
+    python build/build.py "notes/Junior/Big Quantum/Lectures/1 Spin angular momentum.md"
     python build/build.py template.tex --light
-    python build/build.py --all notes/Junior/Big Quantum/Lectures
+    python build/build.py --all "notes/Junior/Big Quantum/Lectures"
 
-For a .md it runs md2tex.py first, dropping the generated .tex next to the
-source (so relative image paths resolve), then compiles it. The PDF lands in
-out/ mirroring the note's folder structure.
+Output:   <folder the note is in>/pdfs/<same name>.pdf
+Scratch:  .build/   generated .tex, .aux, .log -- git-ignored, safe to delete
+
+A .md is converted into .build/ rather than next to the note, so a hand-written
+.tex that happens to share the note's name is never overwritten.
 """
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -24,11 +25,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 TEXDIR = ROOT / "tex"
-OUTDIR = ROOT / "out"
+BUILDDIR = ROOT / ".build"
+
+# Left over from a failed run, these can themselves abort the next one
+# (a half-written .out made Lab 1 die with "Emergency stop" on line 1).
+STALE_AUX = (".aux", ".out", ".toc", ".lof", ".lot")
 
 
 def texinputs():
-    """TeX needs to find hmcnote.cls and preamble.sty wherever we build."""
+    """Belt and braces: the class is in TEXMFHOME, but tex/ wins if newer."""
     env = dict(os.environ)
     sep = ";" if os.name == "nt" else ":"
     existing = env.get("TEXINPUTS", "")
@@ -40,10 +45,9 @@ def ensure_class_installed():
     """
     Keep the copy in TEXMFHOME in step with tex/.
 
-    The class lives in TEXMFHOME so that LaTeX Workshop -- which does not
-    expand ${workspaceFolder} in a tool's env, and so never receives our
-    TEXINPUTS -- can still find it. Refreshing here means editing tex/ is
-    enough; nobody has to remember to reinstall.
+    The class lives in TEXMFHOME so that LaTeX Workshop -- which never passes
+    our TEXINPUTS through -- can find it from any folder. Refreshing here
+    means editing tex/ is enough; nobody has to remember to reinstall.
     """
     try:
         sys.path.insert(0, str(HERE))
@@ -57,110 +61,141 @@ def ensure_class_installed():
               file=sys.stderr)
 
 
-def run_latex(tex_path, out_dir, engine="lualatex", passes=2, quiet=True):
-    tex_path = Path(tex_path).resolve()
-    out_dir = Path(out_dir).resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
+def scratch_dir_for(source):
+    """Mirror the note's folder under .build/, or hash it if outside the repo."""
+    parent = source.resolve().parent
+    try:
+        return BUILDDIR / parent.relative_to(ROOT)
+    except ValueError:
+        digest = hashlib.sha1(str(parent).encode("utf-8")).hexdigest()[:10]
+        return BUILDDIR / "external" / digest
 
-    cmd_base = [
+
+def pdf_destination(source):
+    return source.resolve().parent / "pdfs" / (source.stem + ".pdf")
+
+
+def vault_root_for(source):
+    """Where to look for embedded images: the enclosing vault, or notes/."""
+    notes = (ROOT / "notes").resolve()
+    for p in [source.resolve().parent] + list(source.resolve().parents):
+        if (p / ".obsidian").is_dir() or p == notes:
+            return p
+    return source.resolve().parent
+
+
+def display(path):
+    try:
+        return str(Path(path).resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def run_latex(tex_path, work_dir, engine="lualatex", passes=2):
+    tex_path = Path(tex_path).resolve()
+    work_dir = Path(work_dir).resolve()
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    for ext in STALE_AUX:
+        stale = work_dir / (tex_path.stem + ext)
+        if stale.exists():
+            stale.unlink()
+    pdf = work_dir / (tex_path.stem + ".pdf")
+    if pdf.exists():
+        pdf.unlink()
+
+    cmd = [
         engine,
         "-interaction=nonstopmode",
         "-file-line-error",
-        "-output-directory=%s" % out_dir,
+        "-synctex=1",
+        "-output-directory=%s" % work_dir,
+        tex_path.name,
     ]
 
-    pdf = out_dir / (tex_path.stem + ".pdf")
-    log_tail = ""
-    rc = 0
-    for i in range(passes):
+    rc, stdout, attempt = 0, "", 0
+    for attempt in range(1, passes + 1):
         proc = subprocess.run(
-            cmd_base + [tex_path.name],
+            cmd,
             cwd=str(tex_path.parent),
             env=texinputs(),
             capture_output=True,
             text=True,
             errors="replace",
         )
-        log_tail = proc.stdout
-        rc = proc.returncode
+        rc, stdout = proc.returncode, proc.stdout
         if rc != 0:
             break
 
-    # A failed run can still leave a truncated PDF from an earlier pass, so
-    # trust the exit status, not the file's existence -- otherwise a broken
-    # build gets reported as a success.
-    if rc != 0:
+    # Trust the exit status, not whether a PDF file exists: a failed pass can
+    # leave a truncated PDF behind that looks like success.
+    if rc != 0 or not pdf.exists():
         errs = [
-            l for l in log_tail.splitlines()
+            l for l in stdout.splitlines()
             if l.startswith("!") or (".tex:" in l and "rror" in l)
         ]
-        print("LaTeX failed (pass %d):" % (i + 1), file=sys.stderr)
+        print("LaTeX failed (pass %d) on %s:" % (attempt, tex_path.name), file=sys.stderr)
         for e in errs[:12]:
             print("   ", e, file=sys.stderr)
         if not errs:
-            print("\n".join(log_tail.splitlines()[-25:]), file=sys.stderr)
+            print("\n".join(stdout.splitlines()[-25:]), file=sys.stderr)
+        print("    full log: %s" % (work_dir / (tex_path.stem + ".log")), file=sys.stderr)
         if pdf.exists():
-            # Don't leave a corrupt PDF lying around pretending to be output.
-            try:
-                pdf.unlink()
-            except OSError:
-                pass
+            pdf.unlink()
         return None
     return pdf
 
 
-def build_one(source, mode, engine, keep_tex, quiet=False):
+def build_one(source, mode, engine, keep_tex=False, quiet=False):
     source = Path(source).resolve()
     if not source.exists():
         print("No such file: %s" % source, file=sys.stderr)
         return None
 
     t0 = time.time()
+    scratch = scratch_dir_for(source)
+    scratch.mkdir(parents=True, exist_ok=True)
 
-    if source.suffix.lower() == ".md":
-        generated = source.with_suffix(".tex")
+    suffix = source.suffix.lower()
+    if suffix == ".md":
+        tex = scratch / (source.stem + ".tex")
         cmd = [
-            sys.executable,
-            str(HERE / "md2tex.py"),
-            str(source),
-            "-o", str(generated),
-            "--vault-root", str(ROOT / "notes"),
+            sys.executable, str(HERE / "md2tex.py"), str(source),
+            "-o", str(tex),
+            "--vault-root", str(vault_root_for(source)),
             "--%s" % mode,
         ]
         proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
         if proc.returncode != 0:
             print(proc.stdout + proc.stderr, file=sys.stderr)
             return None
-        if not quiet and proc.stdout.strip():
+        if not quiet:
             for line in proc.stdout.strip().splitlines()[1:]:
                 print("   ", line)
-        tex = generated
-    elif source.suffix.lower() == ".tex":
+        if keep_tex:
+            print("    generated LaTeX: %s" % display(tex))
+    elif suffix == ".tex":
         tex = source
     else:
         print("Not a .md or .tex: %s" % source, file=sys.stderr)
         return None
 
-    # Mirror the note's location under out/ so PDFs don't collide.
+    pdf = run_latex(tex, scratch, engine=engine)
+    if not pdf:
+        return None
+
+    dest = pdf_destination(source)
+    dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        rel_parent = tex.parent.relative_to(ROOT)
-    except ValueError:
-        rel_parent = Path(".")
-    out_dir = OUTDIR / rel_parent
+        shutil.copy2(pdf, dest)
+    except PermissionError:
+        print("Built, but could not write %s -- is it open in a PDF viewer "
+              "that locks files (Acrobat)? Close it and rebuild." % dest,
+              file=sys.stderr)
+        return None
 
-    pdf = run_latex(tex, out_dir, engine=engine)
-
-    if tex != source and not keep_tex:
-        try:
-            tex.unlink()
-        except OSError:
-            pass
-
-    if pdf and pdf.exists():
-        print("%s  ->  %s  (%.1fs)"
-              % (source.name, pdf.relative_to(ROOT), time.time() - t0))
-        return pdf
-    return None
+    print("%s  ->  %s  (%.1fs)" % (source.name, display(dest), time.time() - t0))
+    return dest
 
 
 def main():
@@ -174,7 +209,7 @@ def main():
     ap.add_argument("--engine", default="lualatex",
                     choices=["lualatex", "xelatex", "pdflatex"])
     ap.add_argument("--keep-tex", action="store_true",
-                    help="keep the generated .tex next to the .md")
+                    help="print where the generated .tex is (it stays in .build/)")
     args = ap.parse_args()
 
     mode = "light" if args.light else "dark"
@@ -187,18 +222,16 @@ def main():
             if not p.name.endswith(".excalidraw.md")
         )
         print("Building %d note(s) from %s\n" % (len(notes), folder))
-        ok = fail = 0
-        failures = []
+        ok, failures = 0, []
         for n in notes:
             if build_one(n, mode, args.engine, args.keep_tex, quiet=True):
                 ok += 1
             else:
-                fail += 1
                 failures.append(n)
-        print("\n%d succeeded, %d failed" % (ok, fail))
+        print("\n%d succeeded, %d failed" % (ok, len(failures)))
         for f in failures[:20]:
-            print("   FAILED  %s" % f)
-        return 0 if fail == 0 else 1
+            print("   FAILED  %s" % display(f))
+        return 0 if not failures else 1
 
     return 0 if build_one(args.source, mode, args.engine, args.keep_tex) else 1
 

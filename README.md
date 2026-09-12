@@ -1,306 +1,266 @@
 # HMC Notes in VS Code
 
-Your Obsidian setup, rebuilt as a local LaTeX workspace: the same 425 snippets,
-the same Tokyo Night look, the same 559 notes — plus real LaTeX when you want it.
+Your Obsidian setup, rebuilt as a local LaTeX workspace: the same Latex Suite
+snippets, the same Tokyo Night look, the same notes — plus real LaTeX when you
+want it.
 
 ---
 
-## 1. One-time setup (about three minutes)
+## 1. One-time setup
 
-Both required extensions — **LaTeX Workshop** and **HyperSnips** — are already
-installed on this machine, and the snippets are already installed into VS Code's
-own folder. Three steps remain.
+### Extensions
 
-### Step 1 — disable the conflicting extensions (important)
+Already installed on this machine:
 
-You have several overlapping LaTeX extensions. Two of them will actively break
-this setup:
+| Extension | What it does here |
+| --- | --- |
+| **LaTeX Workshop** | Builds `.tex`, PDF beside the editor, SyncTeX, hover maths preview |
+| **HyperSnips** (+ its helper **hscopes**) | Runs your ported Latex Suite snippets |
+| **Obsidian Embeds Preview** | Shows `![[Pasted image ...]]` images in the markdown preview. Lives in this repo at `tools/obsidian-preview/` |
 
-| Extension | Problem | Do |
-| --- | --- | --- |
-| `oskar-idland.hypersnipsv2` | A fork of HyperSnips. Both read the same `.hsnips` files, so **every snippet fires twice** — you'd get `\alpha\alpha`. | **Disable** |
-| `jeffersonqin.latex-snippets-jeff` | Ships its own LaTeX snippet triggers that collide with yours. | **Disable** |
-| `mathematic.vscode-latex` | Duplicate LaTeX language grammar; fights LaTeX Workshop's scopes, which is what snippet math-detection depends on. | **Disable** |
-| `torn4dom4n.latex-support` | Same. | **Disable** |
-| `tecosaur.latex-utilities` | Designed to complement LaTeX Workshop. | Keep |
+If you ever need to reinstall the embeds extension:
 
-`Ctrl+Shift+X`, search each name, gear icon → **Disable**. Reload the window
-afterwards.
+```bash
+python tools/obsidian-preview/pack_vsix.py
+```
 
-### Step 2 — copy the keybindings
+```bash
+code --install-extension tools/obsidian-preview/obsidian-embeds-preview-0.1.0.vsix --force
+```
 
-VS Code stores these per-user, so the repo can't set them. Open
-`Ctrl+Shift+P` → *Preferences: Open Keyboard Shortcuts (JSON)* and paste the
-entries from
+### Disable the conflicting extensions (important)
+
+`Ctrl+Shift+X`, search each name, gear icon → **Disable**:
+
+| Extension | Problem |
+| --- | --- |
+| `oskar-idland.hypersnipsv2` | A HyperSnips fork. Registers the same `.hsnips` language; can double-fire snippets. |
+| `jeffersonqin.latex-snippets-jeff` | Its own LaTeX triggers collide with yours. |
+| `mathematic.vscode-latex` | Duplicate LaTeX grammar, fights LaTeX Workshop. |
+| `torn4dom4n.latex-support` | Same. |
+
+Keep `tecosaur.latex-utilities` — it complements LaTeX Workshop.
+
+Then `Ctrl+Shift+P` → **Developer: Reload Window**.
+
+### Keybindings
+
+VS Code stores these per-user, so the repo can't set them. `Ctrl+Shift+P` →
+*Preferences: Open Keyboard Shortcuts (JSON)*, and paste the entries from
 [.vscode/keybindings-to-copy.json](.vscode/keybindings-to-copy.json) inside the
-existing `[ ... ]`. You already have two entries in there; keep them.
+existing `[ ... ]`.
 
-### Step 3 — open this folder and check it works
+### Check it works
 
-`File → Open Folder` → this folder. Then:
+`File → Open Folder` → this folder, then:
 
-1. Open `template.tex`, press `Ctrl+Alt+B`. A PDF should appear beside it.
-2. In the same file, inside any `$...$`, type `sq` — it should become
-   `\sqrt[]{ }` with the cursor inside, without pressing Tab.
-3. Open any note under `notes/`, press `Ctrl+Alt+V`. Math should render live.
-
-If step 2 does nothing, Step 1 was skipped or the window needs reloading.
-
-TeX Live 2025 and Python are already on this machine, so there is nothing else
-to install.
+1. Open any note under `notes/`. Inside `$ $` type `ptl` → `\partial`. On an
+   empty line type `dm` → a `$$ \begin{align} … \end{align} $$` block.
+2. `Ctrl+Alt+V` → preview beside the note, with maths **and images**.
+3. `Ctrl+Alt+B` → the PDF appears in `pdfs/` next to the note.
 
 ---
 
-## 2. Writing a note in Markdown (the daily driver)
+## 2. Where PDFs go
 
-Your notes already work. Open any file under `notes/` and type exactly as you do
-in Obsidian — `$...$`, `![[Pasted image ...]]`, tables, `> [!note]` callouts.
+Every build — markdown or LaTeX, from the task or from LaTeX Workshop — writes:
+
+```
+<folder the note is in>/pdfs/<same name>.pdf
+```
+
+`notes/Junior/Big Quantum/Lectures/1 Spin angular momentum.md` →
+`notes/Junior/Big Quantum/Lectures/pdfs/1 Spin angular momentum.pdf`
+
+Scratch files (generated `.tex`, `.aux`, `.log`) go to `.build/`, which is
+git-ignored and safe to delete. A markdown note is converted **into `.build/`**,
+never next to the note, so a hand-written `.tex` with the same name is never
+overwritten.
+
+> 52 notes already had an Obsidian-exported PDF with the same name in their
+> `pdfs/` folder. Building one of those notes replaces that PDF in this copy.
+> The originals in your Obsidian vault are untouched, and git keeps history.
+
+---
+
+## 3. Writing in Markdown (the daily driver)
+
+Open a note under `notes/` and write exactly as in Obsidian — `$...$`,
+`$$...$$`, `![[Pasted image ...]]`, tables, `> [!note]` callouts.
 
 | Key | Action |
 | --- | --- |
-| `Ctrl+Alt+V` | Live preview beside the editor. Math renders as you type. |
-| `Ctrl+Alt+B` | Build this note to PDF |
+| `Ctrl+Alt+V` | Live preview beside the editor: maths and images |
+| `Ctrl+Alt+B` | Build this note → `pdfs/` |
+| `Ctrl+Alt+M` | Maths preview panel following your cursor |
+| `Ctrl+Alt+S` | Wrap selection (the old `${VISUAL}` snippets) |
 
-The PDF lands in `out/`, mirroring the note's folder.
-
-### About seeing math rendered
-
-You asked to see the rendered form once you leave an equation. Here is the
-honest state of things: **nothing in VS Code reproduces Latex Suite's inline
-concealment**, where `\frac{1}{2}` visually collapses to a fraction in the
-editor itself. That is an Obsidian-specific editor extension and there is no
-equivalent for `.tex` or `.md` in VS Code.
-
-What you get instead, and it is close in practice:
-
-1. **Side-by-side live preview** (`Ctrl+Alt+V` on markdown). Math re-renders as
-   you type, in a pane next to your source. Your macros — `\bb`, `\pardx`,
-   `\vspan`, `\ket` — are configured in `.vscode/settings.json` so they render
-   here exactly as in Obsidian.
-2. **Hover preview.** Hover any math span and a rendered image of it pops up,
-   right where the cursor is. This is the nearest thing to "check what I just
-   typed" without leaving the line.
-3. **Math preview panel** (`Ctrl+Alt+M`) — a docked pane that continuously shows
-   the equation your cursor is currently inside.
-
-For LaTeX files, `Ctrl+Alt+J` jumps from the cursor to that exact spot in the
-PDF, and `Ctrl+click` in the PDF jumps back to the source line.
+**About seeing maths rendered:** nothing in VS Code reproduces Latex Suite's
+in-editor concealment (where `\frac{1}{2}` collapses to a fraction inside the
+editor itself). The side-by-side preview re-renders as you type, and hovering
+any maths shows it rendered at the cursor.
 
 ---
 
-## 3. Writing a note in LaTeX
+## 4. Writing in LaTeX
 
-Copy [`template.tex`](template.tex), rename it, and start typing. Save, and
-LaTeX Workshop compiles and refreshes the PDF pane automatically.
+Copy [`template.tex`](template.tex), rename it, start typing. Save → LaTeX
+Workshop builds with latexmk and refreshes the PDF tab. `Ctrl+Alt+J` jumps from
+the cursor to that spot in the PDF; `Ctrl+click` in the PDF jumps back.
 
 ```latex
-\documentclass[dark]{hmcnote}   % or [light]
+\documentclass[dark]{hmcnote}   % or [light] for printing
 \usepackage{preamble}
 
 \course{Phys 116 -- Quantum Mechanics}
 \begin{document}
 \lecture{4}{Stern--Gerlach}{2026-01-21}
 
-Your text. $\ket{\psi} = c_+\ket{+z} + c_-\ket{-z}$ and so on.
+$\ket{\psi} = c_+\ket{+z} + c_-\ket{-z}$, and $\braket{ +z | \psi } = c_+$.
 
 \end{document}
 ```
 
-### What the class gives you
-
 | Command | Result |
 | --- | --- |
-| `\lecture{4}{Title}{date}` | The title block at the top |
+| `\lecture{4}{Title}{date}` | Title block |
 | `\course{...}` | Running header on later pages |
-| `\embed{Pasted image ....png}` | An image, centred and clamped to the page |
-| `\begin{note}[Title]` | Blue callout card (also `tip`, `warning`, `important`, `example`) |
-| `\begin{theorem}` | Numbered theorem (also `lemma`, `definition`, `corollary`, `proposition`, `remark`) |
-| `\hmctablehead{...}` | Table header cell in the accent colour |
+| `\embed{Pasted image ....png}` | Centred image, clamped to the page |
+| `\begin{note}[Title]` | Callout card (also `tip`, `warning`, `important`, `example`) |
+| `\begin{theorem}` | Numbered (also `lemma`, `definition`, `corollary`, `proposition`, `remark`) |
 
-Your macros from Obsidian's `preamble.sty` are all in
-[`tex/preamble.sty`](tex/preamble.sty): `\bb`, `\bvec`, `\pardx`, `\ddx`,
-`\norm`, `\abs`, `\curl`, `\div`, `\grad`, `\vspan`, plus `\ket`, `\bra`,
-`\braket`, `\ketbra`.
+Your Obsidian macros are in [`tex/preamble.sty`](tex/preamble.sty): `\bb`,
+`\bvec`, `\pardx`, `\ddx`, `\norm`, `\abs`, `\curl`, `\div`, `\grad`, `\vspan`,
+plus `\ket`, `\bra`, `\braket{ a | b }` (bar inside, as you write it), `\ketbra`.
+`\sqrt[]{x}` — what your `sq` snippet produces — is handled; unicode-math would
+otherwise crash on the empty `[]`.
 
-`\braket{ +z | +n }` works with the bar inside, the way you already write it —
-including the three-part form `\braket{ \psi | \hat{A} | \psi }`.
+`hmcnote.cls` and `preamble.sty` are installed into your TeX user tree
+(`C:\Users\Sorin\texmf`), so any `.tex` anywhere finds them. Editing `tex/` is
+enough: every build refreshes the installed copy.
 
 ---
 
-## 4. Snippets
+## 5. Snippets
 
-All **425** of your Latex Suite snippets are ported and live in
-[`hsnips/`](hsnips/). They behave the same way: type `sq` in math and you get
-`\sqrt[]{ }`, type `//` and you get a fraction, `@a` gives `\alpha`.
+All of your Latex Suite snippets are ported into [`hsnips/`](hsnips/) and
+behave as in Obsidian: auto-expanding, maths-only ones only in maths, tabstops
+in the same order (`//` puts you in the numerator first).
 
-They expand **automatically**, with no Tab, exactly as in Obsidian, and only
-fire where they should — math snippets don't trigger in prose.
+**Selection wrappers** (`U` underbrace, `C` cancel, `S` sqrt, brackets): select
+the expression, `Ctrl+Alt+S`, pick one. HyperSnips can't do Latex Suite's
+`${VISUAL}`.
 
-### The three things that changed
+**Custom snippets:** put them in
+[`build/manual_snippets.hsnips`](build/manual_snippets.hsnips). Don't edit
+`hsnips/*.hsnips` — they are regenerated.
 
-**1. Selection-wrapping snippets work differently.** Latex Suite's `${VISUAL}`
-snippets (`U` for underbrace, `C` for cancel, `S` for sqrt, and the bracket
-wrappers) have no HyperSnips equivalent. They became VS Code *surround-with*
-snippets instead:
-
-> Select the expression → `Ctrl+Alt+S` → pick `underbrace` / `cancel` / `sqrt` / …
-
-**2. `iden3` got rewritten by hand.** It was a JavaScript function snippet;
-HyperSnips runs JS too, so it was re-implemented in
-[`build/manual_snippets.hsnips`](build/manual_snippets.hsnips). `zeros3` came
-along for free. Put any other custom snippets in that file — it is appended to
-both snippet files on every re-sync and never overwritten.
-
-**3. Everything else is generated.** Don't hand-edit `hsnips/latex.hsnips` or
-`hsnips/markdown.hsnips`; they are rebuilt from Obsidian.
-
-### Keeping snippets in sync with Obsidian
-
-Add a snippet in Obsidian as usual, then run the task
-**Re-sync snippets from Obsidian** (`Ctrl+Shift+P` → *Tasks: Run Task*), or:
-
-```bash
-python build/port_snippets.py
-```
-
-It reads Latex Suite's `data.json` directly, so Obsidian stays the place you
-manage snippets.
-
-Add `--install` to also copy them into VS Code's own snippets folder
-(`%APPDATA%\Code\User\hsnips`), which is where HyperSnips looks by default:
+**After adding snippets in Obsidian:**
 
 ```bash
 python build/port_snippets.py --install
 ```
 
-That has already been done once. Use it again after any re-sync — otherwise the
-new snippets only exist in this repo, and HyperSnips may not pick them up from
-here depending on how it resolves `hsnips.hsnipsPath`.
+```bash
+node build/test_snippets.js
+```
+
+The second command loads HyperSnips' **own** parser and matcher and types test
+cases, so a broken snippet file shows up here instead of silently doing nothing
+in the editor. Add a case to the `CASES` list if you want a snippet guarded.
+
+`--install` also copies the snippets into HyperSnips' own folder so they work
+in any VS Code window. Your previous HyperSnips `latex.hsnips` from before this
+setup was backed up to `build/backup-original-global-hsnips/`.
 
 ---
 
-## 5. Dark and light
-
-Every PDF builds either way from the same source.
+## 6. Dark and light
 
 ```bash
-python build/build.py "notes/Junior/Big Quantum/Lectures/1 Spin angular momentum.md" --dark
 python build/build.py "notes/Junior/Big Quantum/Lectures/1 Spin angular momentum.md" --light
 ```
 
-In `.tex` files it is the class option: `\documentclass[dark]{hmcnote}` or
-`[light]`.
-
-- **dark** — `#1a1b26` page, `#c0caf5` text, your `#aa62d0` accent. Matches
-  Obsidian on screen.
-- **light** — white page, same palette but deepened so the accent colours don't
-  wash out in print. Use this for anything you hand in.
+In `.tex`: `\documentclass[dark]{hmcnote}` or `[light]`. Dark matches Obsidian
+on screen; light deepens the accents so they survive on white paper.
 
 ---
 
-## 6. Re-importing notes from Obsidian
+## 7. Re-importing notes from Obsidian
 
-`notes/` is a **copy**. Obsidian is still the live vault. To refresh:
+`notes/` is a copy; Obsidian is still the live vault.
 
 ```bash
 python build/import_vault.py
 ```
 
-It copies markdown and images, skips `.obsidian` and `.git`. Add `--no-pdfs`
-to leave out the ~194 MB of reference PDFs.
-
 ---
 
-## 7. GitHub sync
+## 8. GitHub sync
 
-This folder is a git repository pushing to
+Pushes to
 [Sorin-Jayaweera/VSCODE-Latex](https://github.com/Sorin-Jayaweera/VSCODE-Latex).
-
-**Automatic**: a Windows scheduled task, *HMC Notes GitHub Sync*, commits and
-pushes every 30 minutes while you're logged in.
+A scheduled task, *HMC Notes GitHub Sync*, commits and pushes every 30 minutes.
 
 ```powershell
-.\build\autosync.ps1 -Status            # is it on? when did it last run?
-.\build\autosync.ps1 -Install -Minutes 60   # change the interval
-.\build\autosync.ps1 -Remove            # turn it off
+.\build\autosync.ps1 -Status
 ```
 
-**Manual**, any time — task **Sync to GitHub now**, or:
-
-```bash
-python build/sync.py
-python build/sync.py --dry-run          # show what would be committed
+```powershell
+.\build\autosync.ps1 -Remove
 ```
 
-`sync.py` rebases onto GitHub before pushing, so a push from another machine is
-never clobbered, and it refuses to run mid-merge rather than making a mess.
-
-> **Two things to know.** The repo is ~400 MB, because it carries 226 MB of
-> images and 194 MB of reference PDFs. That's fine for GitHub but the first
-> clone on another machine is slow; run `python build/import_vault.py --no-pdfs`
-> and re-commit if you'd rather drop the reference PDFs. Also, `core.longpaths`
-> is enabled for this repo — several of your filenames exceed Windows' 260
-> character limit and git refuses to index them otherwise.
+Sync now: task **Sync to GitHub now**, or `python build/sync.py`.
 
 ---
 
-## 8. What is where
+## 9. What is where
 
 ```
 vscode latex/
-├── template.tex              <- copy this to start a LaTeX note
-├── tex/
-│   ├── hmcnote.cls           <- the document class: palette, headings, callouts
-│   └── preamble.sty          <- your maths macros
-├── hsnips/
-│   ├── latex.hsnips          <- 425 snippets for .tex   (generated)
-│   └── markdown.hsnips       <- 425 snippets for .md    (generated)
-├── notes/                    <- your 559 notes + images, copied from the vault
+├── template.tex              copy this to start a LaTeX note
+├── tex/                      hmcnote.cls (look) + preamble.sty (macros)
+├── hsnips/                   generated snippets
+├── notes/                    your notes; PDFs build into each folder's pdfs/
+├── tools/obsidian-preview/   the ![[embed]] preview extension
 ├── build/
-│   ├── port_snippets.py      <- Latex Suite  -> HyperSnips
-│   ├── manual_snippets.hsnips<- hand-written snippets (edit this one)
-│   ├── md2tex.py             <- Obsidian markdown -> LaTeX
-│   ├── build.py              <- note -> PDF          (what the tasks call)
-│   ├── import_vault.py       <- refresh notes/ from Obsidian
-│   └── smoke_test.py         <- convert every note, report anything broken
-├── out/                      <- PDFs and build files (git-ignored)
-└── .vscode/                  <- settings, tasks, keybindings to copy
+│   ├── build.py              note -> <folder>/pdfs/<name>.pdf
+│   ├── md2tex.py             Obsidian markdown -> LaTeX
+│   ├── port_snippets.py      Latex Suite -> HyperSnips
+│   ├── manual_snippets.hsnips  your hand-written snippets
+│   ├── test_snippets.js      runs HyperSnips' real code on the snippets
+│   ├── install_class.py      puts the class where TeX finds it
+│   ├── smoke_test.py         converts every note, compiles a sample
+│   ├── import_vault.py, sync.py, autosync.ps1
+├── .build/                   scratch (git-ignored)
+└── .vscode/                  settings, tasks, keybindings to copy
 ```
 
 ---
 
-## 9. Known gaps
+## 10. Known gaps
 
-- **Inline concealment doesn't exist in VS Code.** See §2. Use the preview pane
-  or hover.
-- **21 Excalidraw drawings** (in `notes/special/FriendsNotes/Phys51/Attachments/`)
-  are copied but can't be typeset — they're vector JSON, not prose. Install the
-  Excalidraw plugin in Obsidian and export them to SVG if you want them in a PDF.
-- **19 image references are missing**, across 9 notes, all in
-  `notes/special/FriendsNotes/` — those images were never in your vault to begin
-  with. They render as *[missing image: ...]* rather than failing the build.
-- **Wikilinks** `[[Note]]` become italic text in the PDF. There is no sensible
-  cross-document link in a standalone PDF.
+- **No in-editor maths concealment** in VS Code (see §3).
+- **Notes written for MathJax don't always compile in real LaTeX.** MathJax
+  forgives things LaTeX doesn't. The converter repairs the common ones (empty
+  `\sqrt[]`, `\begin{align}` nested inside `$$`, `\\` just before `\right`,
+  maths in headings); when a note still fails, the build prints the line and the
+  full log path under `.build/`.
+- **21 Excalidraw drawings** in `notes/special/FriendsNotes/Phys51/` can't be
+  typeset (vector JSON, not prose).
+- **19 image references point at images that were never in the vault**, all in
+  `notes/special/FriendsNotes/`. They render as *[missing image]*.
 
 ---
 
-## 10. If something breaks
+## 11. If something breaks
 
-**A note won't compile.** Get the generated LaTeX and read the error in context:
+**A note won't build.** The error and log path are printed. The generated LaTeX
+is in `.build/` at the same relative path as the note.
 
-```bash
-python build/md2tex.py "notes/path/to/Note.md" -o out/debug.tex --vault-root notes
-```
+**Snippets stopped firing.** Run `node build/test_snippets.js`. If that passes,
+check HyperSnips is enabled and the conflicting extensions in §1 are disabled,
+then reload the window.
 
-**Check nothing regressed after editing the converter:**
-
-```bash
-python build/smoke_test.py --compile 10
-```
-
-Converts all 538 notes, reports crashes and suspicious output, then compiles a
-random sample. Currently: 0 crashes, 10/10 compiled.
-
-**Snippets stopped firing.** Check `hsnips.hsnipsPath` in
-`.vscode/settings.json` still points at `hsnips/`, and that the HyperSnips
-extension is enabled. Math snippets only fire inside `$...$`.
+**Images missing in the preview.** Check *Obsidian Embeds Preview* is enabled,
+then reload the window.

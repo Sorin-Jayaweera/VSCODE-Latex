@@ -159,6 +159,11 @@ def wrap_display(body):
     if not body:
         return ""
 
+    # A row break directly before \right, e.g. "\end{pmatrix} \\ \right)",
+    # is ignored by MathJax but ends the align row in LaTeX, stranding the
+    # \left and killing the build. Dropping it renders identically.
+    body = re.sub(r"\\\\\s*(\\right\b)", r"\1", body)
+
     m = SELF_DISPLAY_RE.match(body)
     if m and body.rstrip().endswith("\\end{%s}" % m.group(1)):
         # The whole block IS the display environment: leave it alone.
@@ -389,8 +394,61 @@ class Converter:
     def inline(self, text):
         return convert_inline(text, self.ctx, Vault())
 
+    @staticmethod
+    def _split_display_delimiters(lines):
+        r"""
+        Put every $$ on a line of its own before block parsing.
+
+        Notes write display maths in several shapes:
+
+            write $$            $$              $$ x = 1 $$
+            x = 1               x = 1
+            $$ so we know       $$
+
+        The block parser pairs $$ lines up in order, so a $$ at the END of a
+        text line ("write $$") used to be missed, the pairing drifted by one,
+        and every later block came out inverted -- maths escaped as text,
+        prose typeset as maths, ![[images]] swallowed. Normalising first makes
+        the pairing global and shape-independent.
+
+        Code fences, list items and table rows are left alone; $$...$$ there
+        is handled inline.
+        """
+        out = []
+        in_fence = False
+        quote_re = re.compile(r"^(\s*(?:>\s?)+)")
+        for line in lines:
+            if FENCE_RE.match(line):
+                in_fence = not in_fence
+                out.append(line)
+                continue
+            if (
+                in_fence
+                or "$$" not in line
+                or ULIST_RE.match(line)
+                or OLIST_RE.match(line)
+                or line.lstrip().startswith("|")
+            ):
+                out.append(line)
+                continue
+
+            qm = quote_re.match(line)
+            prefix = qm.group(1) if qm else ""
+            body = line[len(prefix):]
+            if body.strip() == "$$":
+                out.append(line)
+                continue
+
+            parts = body.split("$$")
+            for k, part in enumerate(parts):
+                if part.strip():
+                    out.append(prefix + part)
+                if k < len(parts) - 1:
+                    out.append(prefix + "$$")
+        return out
+
     def convert(self, text):
-        lines = text.split("\n")
+        lines = self._split_display_delimiters(text.split("\n"))
 
         # Notes usually start at "##" because the H1 is the filename. Shift the
         # shallowest heading present up to \section so numbering reads 1, 1.1,
@@ -500,6 +558,17 @@ class Converter:
         level = len(m.group(1)) - 1 + self.heading_offset
         level = max(0, min(level, len(SECTIONS) - 1))
         title = self.inline(m.group(2).strip())
+
+        # Heading text is also copied into the PDF bookmarks, where
+        # unicode-math symbols such as \sigma are illegal: "Improper alphabetic
+        # constant", and no PDF at all. Give hyperref a plain-text version.
+        def bookmark_safe(mm):
+            maths = mm.group(1)
+            plain = re.sub(r"\\([A-Za-z]+)", r"\1", maths)
+            plain = re.sub(r"[{}^_\\$]", "", plain).strip() or "maths"
+            return "\\texorpdfstring{$%s$}{%s}" % (maths, plain)
+
+        title = re.sub(r"(?<!\\)\$([^$]+)\$", bookmark_safe, title)
         self.out.append("")
         self.out.append("\\%s{%s}" % (SECTIONS[level], title))
         self.out.append("")
@@ -547,7 +616,10 @@ class Converter:
     def _try_list(self):
         if not (ULIST_RE.match(self.lines[self.i]) or OLIST_RE.match(self.lines[self.i])):
             return False
-        self._emit_list(base_indent=0)
+        # Start at the first item's own indentation: a list whose first bullet
+        # is indented used to open \begin{itemize}\begin{itemize} with no
+        # \item in between, which LaTeX rejects ("perhaps a missing \item").
+        self._emit_list(base_indent=self._indent_of(self.lines[self.i]))
         return True
 
     def _indent_of(self, line):

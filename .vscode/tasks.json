@@ -32,13 +32,13 @@
       "problemMatcher": []
     },
     {
-      "label": "Convert note -> .tex (keep it, don't compile)",
+      "label": "Convert note -> .tex (into .build/converted, don't compile)",
       "type": "shell",
       "command": "python",
       "args": [
         "build/md2tex.py", "${file}",
         "--vault-root", "notes",
-        "-o", "${fileDirname}/${fileBasenameNoExtension}.tex"
+        "-o", "${workspaceFolder}/.build/converted/${fileBasenameNoExtension}.tex"
       ],
       "options": { "cwd": "${workspaceFolder}" },
       "presentation": { "reveal": "always", "panel": "shared" },

@@ -1,35 +1,38 @@
 # ==========================================================================
 #  manual_snippets.hsnips
 #
-#  Snippets that can't be converted mechanically from Latex Suite, hand-ported
-#  here. port_snippets.py appends this file verbatim to BOTH latex.hsnips and
-#  markdown.hsnips, so add anything custom here rather than editing those
-#  (they get overwritten on every re-run).
+#  Snippets that can't be converted mechanically from Latex Suite. This file is
+#  appended to BOTH generated snippet files, after their `global` block, so the
+#  helpers math(), code() and lit() are available here.
+#
+#  Rules HyperSnips imposes (see build/port_snippets.py for the details):
+#    * trigger is bare, or a regex in `backticks`
+#    * body text is VS Code snippet syntax: write \\ for a backslash
+#    * text built in JavaScript goes through lit() before it's returned
 # ==========================================================================
 
 # iden3 -> 3x3 identity matrix. Ported from the JS function snippet in
-# Latex Suite. HyperSnips runs the same JavaScript between double backticks.
+# Latex Suite.
 context math(context)
 snippet `iden(\d)` "N x N identity matrix" A
 ``
 let n = parseInt(m[1]);
-let arr = [];
+let rows = [];
 for (let j = 0; j < n; j++) {
-    arr[j] = [];
-    for (let i = 0; i < n; i++) {
-        arr[j][i] = (i === j) ? 1 : 0;
-    }
+    let row = [];
+    for (let i = 0; i < n; i++) row.push(i === j ? 1 : 0);
+    rows.push(row.join(" & "));
 }
-rv = "\\begin{pmatrix}\n" + arr.map(el => el.join(" & ")).join(" \\\\\n") + "\n\\end{pmatrix}";
+rv = lit("\\begin{pmatrix}\n" + rows.join(" \\\\\n") + "\n\\end{pmatrix}");
 ``
 endsnippet
 
-# zeros3 -> 3x3 zero matrix (same machinery, a freebie while we're here)
+# zeros3 -> 3x3 zero matrix
 context math(context)
 snippet `zeros(\d)` "N x N zero matrix" A
 ``
 let n = parseInt(m[1]);
 let row = Array(n).fill(0).join(" & ");
-rv = "\\begin{pmatrix}\n" + Array(n).fill(row).join(" \\\\\n") + "\n\\end{pmatrix}";
+rv = lit("\\begin{pmatrix}\n" + Array(n).fill(row).join(" \\\\\n") + "\n\\end{pmatrix}");
 ``
 endsnippet

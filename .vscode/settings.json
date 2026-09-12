@@ -1,91 +1,75 @@
 {
   // =====================================================================
   //  HyperSnips -- your Latex Suite snippets
-  //  Points at this repo's hsnips/ folder, so the 425 ported snippets are
-  //  active in .tex and .md without installing anything into your profile.
+  //  HyperSnips expands ${workspaceFolder} here. Outside this folder, the
+  //  copy installed by `port_snippets.py --install` is used instead.
   // =====================================================================
   "hsnips.hsnipsPath": "${workspaceFolder}/hsnips",
 
   // =====================================================================
   //  LaTeX Workshop
+  //  PDF goes to <folder of the .tex>/pdfs/<same name>.pdf, next to its
+  //  SyncTeX file. Aux files go to a temp dir so pdfs/ stays clean.
+  //  hmcnote.cls is installed in TEXMFHOME, so no TEXINPUTS is needed.
   // =====================================================================
-  // LuaLaTeX, because the class uses Inter + Fira Math via fontspec.
-  // TEXINPUTS is what lets any .tex anywhere in the tree find hmcnote.cls.
+  "latex-workshop.latex.outDir": "%DIR%/pdfs",
   "latex-workshop.latex.tools": [
     {
-      "name": "lualatex",
-      "command": "lualatex",
+      "name": "latexmk-lualatex",
+      "command": "latexmk",
       "args": [
+        "-lualatex",
         "-synctex=1",
         "-interaction=nonstopmode",
         "-file-line-error",
+        "-outdir=%OUTDIR%",
+        "-auxdir=%TMPDIR%",
         "%DOC%"
-      ],
-      "env": {
-        "TEXINPUTS": ".;${workspaceFolder}/tex;"
-      }
+      ]
     },
     {
-      "name": "pdflatex",
-      "command": "pdflatex",
+      "name": "latexmk-pdflatex",
+      "command": "latexmk",
       "args": [
+        "-pdf",
         "-synctex=1",
         "-interaction=nonstopmode",
         "-file-line-error",
+        "-outdir=%OUTDIR%",
+        "-auxdir=%TMPDIR%",
         "%DOC%"
-      ],
-      "env": {
-        "TEXINPUTS": ".;${workspaceFolder}/tex;"
-      }
+      ]
     }
   ],
   "latex-workshop.latex.recipes": [
-    {
-      "name": "LuaLaTeX x2",
-      "tools": ["lualatex", "lualatex"]
-    },
-    {
-      "name": "LuaLaTeX (single, fast)",
-      "tools": ["lualatex"]
-    },
-    {
-      "name": "pdfLaTeX x2",
-      "tools": ["pdflatex", "pdflatex"]
-    }
+    { "name": "LuaLaTeX (latexmk)", "tools": ["latexmk-lualatex"] },
+    { "name": "pdfLaTeX (latexmk)", "tools": ["latexmk-pdflatex"] }
   ],
+  "latex-workshop.latex.recipe.default": "first",
 
   // Rebuild on save. Turn this off if you find it distracting.
   "latex-workshop.latex.autoBuild.run": "onSave",
+  // Aux files never land in pdfs/, and cleaning would delete the SyncTeX
+  // file that makes click-to-jump work.
+  "latex-workshop.latex.autoClean.run": "never",
 
-  // Side-by-side PDF inside VS Code, with SynqTeX both directions:
+  // Side-by-side PDF inside VS Code, with SyncTeX both directions:
   //   Ctrl+Alt+J   source -> PDF
   //   Ctrl+click   PDF    -> source
   "latex-workshop.view.pdf.viewer": "tab",
   "latex-workshop.synctex.afterBuild.enabled": true,
-
-  // Match the notes: dark PDF on a dark viewer background.
   "latex-workshop.view.pdf.invert": 0,
   "latex-workshop.view.pdf.backgroundColor": "#1a1b26",
 
-  // Hover over any maths to see it rendered, and colour it like the theme.
+  // Hover over any maths to see it rendered.
   "latex-workshop.hover.preview.enabled": true,
   "latex-workshop.hover.preview.scale": 1.2,
-  "latex-workshop.hover.preview.mathjax.extensions": ["physics", "braket"],
-
-  // Keep the tree tidy: these are build droppings, not notes.
-  "latex-workshop.latex.autoClean.run": "onBuilt",
-  "latex-workshop.latex.clean.fileTypes": [
-    "*.aux", "*.bbl", "*.blg", "*.idx", "*.ind", "*.lof", "*.lot",
-    "*.out", "*.toc", "*.acn", "*.acr", "*.alg", "*.glg", "*.glo",
-    "*.gls", "*.fls", "*.log", "*.fdb_latexmk", "*.snm", "*.nav",
-    "*.synctex.gz"
-  ],
 
   // =====================================================================
-  //  Markdown preview
-  //  VS Code renders $...$ with KaTeX. These macros are your preamble.sty,
-  //  so the built-in preview shows \bb, \pardx, \vspan ... exactly as
-  //  Obsidian does. Ctrl+K V opens it beside the editor.
+  //  Markdown preview (Ctrl+Alt+V)
+  //  KaTeX renders $...$; these macros are your preamble.sty. Images from
+  //  ![[embeds]] come from the Obsidian Embeds Preview extension in
+  //  tools/obsidian-preview.
   // =====================================================================
   "markdown.math.enabled": true,
   "markdown.math.macros": {
@@ -119,29 +103,23 @@
   // =====================================================================
   "[latex]": {
     "editor.wordWrap": "on",
-    "editor.defaultFormatter": "James-Yu.latex-workshop",
     "editor.suggest.showWords": false,
     "editor.tabCompletion": "onlySnippets"
   },
   "[markdown]": {
     "editor.wordWrap": "on",
-    "editor.quickSuggestions": {
-      "other": true,
-      "comments": false,
-      "strings": false
-    },
+    "editor.quickSuggestions": { "other": true, "comments": false, "strings": false },
     "editor.suggest.showWords": false
   },
 
-  // Snippets fire on scope, so the editor needs accurate scopes in markdown.
-  "editor.semanticHighlighting.enabled": true,
-
   // The notes/ tree is 2000+ files; keep search and file watching sane.
   "search.exclude": {
+    "**/.build/**": true,
     "**/out/**": true,
     "**/*.excalidraw.md": true
   },
   "files.watcherExclude": {
+    "**/.build/**": true,
     "**/out/**": true
   },
   "files.associations": {
@@ -150,9 +128,10 @@
     "*.sty": "latex"
   },
   "files.exclude": {
+    "**/.build": true,
+    "**/*.synctex.gz": true,
     "**/*.aux": true,
     "**/*.fdb_latexmk": true,
-    "**/*.fls": true,
-    "**/*.synctex.gz": true
+    "**/*.fls": true
   }
 }

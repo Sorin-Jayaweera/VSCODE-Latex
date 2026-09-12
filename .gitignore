@@ -1,13 +1,17 @@
-# ---- build output -------------------------------------------------------
+# ---- build scratch --------------------------------------------------------
+# Generated .tex, .aux, .log from build/build.py. PDFs are NOT here: they go
+# to <note folder>/pdfs/ and are tracked like the rest of the notes.
+.build/
 out/
-*.pdf.bak
+
+# SyncTeX files sit next to PDFs in pdfs/ but are machine-specific
+*.synctex.gz
 
 # LaTeX droppings, wherever they land
 *.aux
 *.log
 *.fls
 *.fdb_latexmk
-*.synctex.gz
 *.toc
 *.out
 *.nav
@@ -19,16 +23,14 @@ out/
 *.ind
 *.ilg
 
-# .tex files generated from markdown by build/md2tex.py.
-# The .md is the source; these are regenerated on every build.
-notes/**/*.tex
+# Packaged VS Code extension (rebuild with tools/obsidian-preview/pack_vsix.py)
+*.vsix
 
-# ---- OS / editor --------------------------------------------------------
+# ---- OS / editor ----------------------------------------------------------
 .DS_Store
 Thumbs.db
 desktop.ini
-*.icloud
 
-# ---- python -------------------------------------------------------------
+# ---- python ---------------------------------------------------------------
 __pycache__/
 *.pyc

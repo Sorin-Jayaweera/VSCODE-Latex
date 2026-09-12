@@ -2,25 +2,39 @@
 """
 port_snippets.py -- Convert Obsidian Latex Suite snippets into VS Code HyperSnips.
 
-Reads the Latex Suite plugin's data.json (whose `snippets` field is JS-ish
-source, not JSON) and emits:
+Reads the Latex Suite plugin's data.json (whose `snippets` field is JS source,
+not JSON) and writes:
 
-    hsnips/latex.hsnips      for .tex files
-    hsnips/markdown.hsnips   for .md files
+    hsnips/latex.hsnips                  for .tex files
+    hsnips/markdown.hsnips               for .md files
+    .vscode/latex-visual.code-snippets   the ${VISUAL} (wrap-selection) ones
 
-Re-run this any time you add snippets in Obsidian:
+Re-run after adding snippets in Obsidian; --install also copies them into
+HyperSnips' own folder so they work in any VS Code window:
 
-    python build/port_snippets.py
+    python build/port_snippets.py --install
+    node build/test_snippets.js          # proves they parse and expand
 
-Latex Suite option flags and how they map:
+What HyperSnips actually requires (read from its parser, not assumed):
 
-    m  math mode only          -> context math(context)
-    n  non-math (text) only    -> context !math(context)
-    t  text mode only          -> context !math(context)
-    c  code blocks only        -> context code(context)
-    A  expand automatically    -> HyperSnips A flag
-    r  trigger is a regex      -> HyperSnips /regex/ trigger
-    w  word boundary required  -> HyperSnips w flag
+  * Trigger is bare (snippet dm "desc" A) or a regex in backticks
+    (snippet `re` "desc" A). A double-quoted trigger registers the quotes as
+    part of the trigger, so it never fires.
+  * Flags: A auto, i in-word, w word-boundary, b line-start, M multiline.
+    With neither i nor w, the whole token before the cursor must EQUAL the
+    trigger; Latex Suite expands mid-token by default, so that maps to i.
+  * Body text is VS Code snippet syntax, where \\ $ } are special.
+  * ``code`` blocks: HyperSnips' parser does not look for endsnippet while
+    inside one, so an unbalanced delimiter (e.g. two blocks written back to
+    back, which makes four backticks) silently swallows every later snippet.
+    Adjacent JS pieces are therefore merged into a single block.
+  * $0 is the FINAL cursor position. Latex Suite uses $0 as the FIRST stop,
+    so every tabstop is renumbered +1.
+
+Latex Suite option flags:
+
+    m  maths only      t/n  text only      c  code only
+    A  auto-expand     r    regex trigger  w  word boundary
 """
 
 import json
@@ -36,6 +50,7 @@ ROOT = HERE.parent
 DEFAULT_DATA_JSON = (
     ROOT.parent / "HMC" / ".obsidian" / "plugins" / "obsidian-latex-suite" / "data.json"
 )
+BACKUP_DIR = HERE / "backup-original-global-hsnips"
 
 
 # --------------------------------------------------------------------------
@@ -147,9 +162,9 @@ class Scanner:
         """
         Read a JS function value, e.g.  (match) => { ... }
 
-        Latex Suite lets `replacement` be a function. We consume it as raw
-        source (balancing brackets, skipping strings) so the rest of the
-        array keeps parsing; these get reported and hand-ported instead.
+        Latex Suite lets `replacement` be a function. It is consumed as raw
+        source (balancing brackets, skipping strings) so the rest of the array
+        keeps parsing; these are hand-ported in manual_snippets.hsnips.
         """
         start = self.i
         depth = 0
@@ -177,7 +192,7 @@ class Scanner:
                 depth -= 1
             elif c == "}":
                 if depth == 0:
-                    break  # this is the enclosing object's closing brace
+                    break  # the enclosing object's closing brace
                 depth -= 1
             elif c == "," and depth == 0:
                 break
@@ -275,7 +290,7 @@ def load_snippet_variables(raw):
     return {}
 
 
-# Latex Suite ships these defaults. If a vault overrides snippetVariables it
+# Latex Suite ships these defaults. A vault that overrides snippetVariables
 # only stores the ones it changed, so anything still referenced falls back here.
 BUILTIN_VARIABLES = {
     "${GREEK}": (
@@ -311,149 +326,246 @@ def expand_variables(pattern, variables, unresolved=None):
 
 
 # --------------------------------------------------------------------------
-# Body conversion: Latex Suite replacement -> HyperSnips body
+# Replacement -> snippet body
 # --------------------------------------------------------------------------
 
 TABSTOP_RE = re.compile(r"\$(\d+)|\$\{(\d+)(?::((?:[^{}]|\{[^{}]*\})*))?\}")
 CAPTURE_RE = re.compile(r"\[\[(\d+)\]\]")
+BARE_TRIGGER_RE = re.compile(r"^[^\s`]+$")
+BACKTICK_JS = '"\\x60"'
 
 
-def _append_interpolation(out, js_expr):
+def snippet_escape(text):
+    """Literal text -> VS Code snippet syntax, where \\ $ and } are special."""
+    return text.replace("\\", "\\\\").replace("$", "\\$").replace("}", "\\}")
+
+
+def to_segments(repl, is_regex, visual_token=None):
     """
-    Append a ``rv = ...`` interpolation, folding any literal backslashes that
-    immediately precede it into the JavaScript itself.
+    Split a Latex Suite replacement into pieces:
 
-    This matters: a LaTeX replacement like "\\[[0]]" would otherwise emit
-    \\``rv = m[1]``, and HyperSnips reads \\` as an escaped literal backtick,
-    which silently destroys the interpolation (and every Greek-letter snippet
-    with it).
+        ("text", s)  literal text, still unescaped
+        ("raw",  s)  already snippet syntax (tabstops, $TM_SELECTED_TEXT)
+        ("js",   e)  a JavaScript expression (regex capture, backtick)
     """
-    backslashes = 0
-    while out and out[-1] == "\\":
-        out.pop()
-        backslashes += 1
-    if backslashes:
-        out.append('``rv = "%s" + (%s)``' % ("\\\\" * backslashes, js_expr))
-    else:
-        out.append("``rv = %s``" % js_expr)
+    segs, buf = [], []
 
+    def flush():
+        if buf:
+            segs.append(("text", "".join(buf)))
+            buf.clear()
 
-def convert_body(repl, is_regex=False):
-    """
-    Convert a Latex Suite replacement into a HyperSnips body.
-
-      backticks   -> escaped (HyperSnips runs ``...`` as JavaScript)
-      bare $      -> escaped (so $$...$$ math delimiters survive)
-      $0 / ${1:x} -> left intact (identical TextMate syntax)
-      [[0]]       -> ``rv = m[1]`` capture-group interpolation
-    """
-    out = []
-    i = 0
-    n = len(repl)
+    i, n = 0, len(repl)
     while i < n:
-        c = repl[i]
-
-        if c == "`":
-            out.append("\\`")
-            i += 1
+        if visual_token and repl.startswith("${VISUAL}", i):
+            flush()
+            segs.append(("raw", visual_token))
+            i += len("${VISUAL}")
             continue
 
         if is_regex and repl.startswith("[[", i):
             m = CAPTURE_RE.match(repl, i)
             if m:
-                grp = int(m.group(1)) + 1  # Latex Suite 0-based -> JS m[] 1-based
-                _append_interpolation(out, "m[%d]" % grp)
+                flush()
+                # Latex Suite [[0]] is the first group; JS m[1] is.
+                segs.append(("js", "m[%d]" % (int(m.group(1)) + 1)))
                 i = m.end()
                 continue
 
-        if c == "$":
+        if repl[i] == "$":
             m = TABSTOP_RE.match(repl, i)
             if m:
-                out.append(m.group(0))
+                flush()
+                bare = m.group(1) is not None
+                number = int(m.group(1) if bare else m.group(2)) + 1  # $0 first -> $1
+                default = m.group(3)
+                if default is not None:
+                    segs.append(("raw", "${%d:%s}" % (number, snippet_escape(default))))
+                elif bare:
+                    segs.append(("raw", "$%d" % number))
+                else:
+                    segs.append(("raw", "${%d}" % number))
                 i = m.end()
                 continue
-            out.append("\\$")
+
+        if repl[i] == "`":
+            flush()
+            segs.append(("js", BACKTICK_JS))
             i += 1
             continue
 
-        out.append(c)
+        buf.append(repl[i])
         i += 1
 
+    flush()
+    return segs
+
+
+def segments_to_hsnips(segs):
+    """Body for an .hsnips file. Consecutive JS pieces share ONE code block."""
+    out, js_run = [], []
+
+    def flush_js():
+        if js_run:
+            out.append("``rv = lit(%s)``" % " + ".join(js_run))
+            js_run.clear()
+
+    for kind, value in segs:
+        if kind == "js":
+            js_run.append(value)
+            continue
+        flush_js()
+        out.append(snippet_escape(value) if kind == "text" else value)
+    flush_js()
     return "".join(out)
 
 
-def escape_trigger(trigger):
-    return '"%s"' % trigger.replace("\\", "\\\\").replace('"', '\\"')
+def segments_to_vscode(segs):
+    """Body for a .code-snippets file (no JavaScript available there)."""
+    out = []
+    for kind, value in segs:
+        if kind == "text":
+            out.append(snippet_escape(value))
+        elif kind == "raw":
+            out.append(value)
+        elif value == BACKTICK_JS:
+            out.append("`")
+    return "".join(out)
 
 
 # --------------------------------------------------------------------------
-# Emit
+# Emit .hsnips
 # --------------------------------------------------------------------------
 
-PREAMBLE_TEX = r'''# ==========================================================================
-#  latex.hsnips -- ported from Sorin's Obsidian Latex Suite snippets
-#
-#  DO NOT EDIT BY HAND if you want to keep syncing from Obsidian:
-#  edit snippets in Obsidian, then re-run  python build/port_snippets.py
-#
-#  Flags:  A = expand automatically (no Tab)   w = word boundary
-# ==========================================================================
+GLOBAL_BLOCK = r'''global
+// ---- Context detection ---------------------------------------------------
+// HyperSnips only hands a context filter the grammar scopes, and markdown's
+// $...$ has no dependable maths scope. So "am I in maths / code?" is decided
+// by reading the document text up to the cursor, as Latex Suite does.
+const vscode = require('vscode');
 
-global
-// True when the cursor sits inside math in a .tex file.
-function math(context) {
-    return context.scopes.some(s =>
-        s.startsWith("meta.math") ||
-        s.startsWith("string.other.math") ||
-        s.includes("math.block") ||
-        s.includes("math.inline")
-    )
+const MATH_ENVS = new Set(['equation', 'equation*', 'align', 'align*', 'gather',
+  'gather*', 'multline', 'multline*', 'flalign', 'flalign*', 'alignat', 'alignat*',
+  'eqnarray', 'eqnarray*', 'math', 'displaymath']);
+const CODE_ENVS = new Set(['verbatim', 'verbatim*', 'Verbatim', 'lstlisting',
+  'minted', 'comment']);
+const TEXT_GROUP = /^\\(?:text|textrm|textit|textbf|textsf|texttt|mbox|intertext)\s*\{/;
+
+function scanContext(text, languageId) {
+  const isTex = languageId === 'latex' || languageId === 'tex';
+  let inline = false, display = false, envDepth = 0, codeEnv = 0;
+  let fence = false, inlineCode = false;
+  let braces = [], textDepth = 0;
+  const lines = text.split('\n');
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    const last = li === lines.length - 1;
+
+    if (!isTex) {
+      if (/^\s*(```|~~~)/.test(line)) {
+        fence = !fence;
+        continue;
+      }
+      if (fence) continue;
+      if (!display && line.trim() === '') inline = false;
+    }
+
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+
+      if (!isTex && inlineCode) {
+        if (c === '`') inlineCode = false;
+        continue;
+      }
+
+      if (c === '\\') {
+        const rest = line.slice(i);
+        let m;
+        if (isTex && (m = /^\\begin\{([^}]*)\}/.exec(rest))) {
+          if (CODE_ENVS.has(m[1])) codeEnv++;
+          else if (!codeEnv && MATH_ENVS.has(m[1])) envDepth++;
+          i += m[0].length - 1;
+          continue;
+        }
+        if (isTex && (m = /^\\end\{([^}]*)\}/.exec(rest))) {
+          if (CODE_ENVS.has(m[1])) codeEnv = Math.max(0, codeEnv - 1);
+          else if (!codeEnv && MATH_ENVS.has(m[1])) envDepth = Math.max(0, envDepth - 1);
+          i += m[0].length - 1;
+          continue;
+        }
+        if (isTex && codeEnv) { i++; continue; }
+        if (isTex && (rest.startsWith('\\(') || rest.startsWith('\\['))) { display = true; i++; continue; }
+        if (isTex && (rest.startsWith('\\)') || rest.startsWith('\\]'))) { display = false; i++; continue; }
+        if ((m = TEXT_GROUP.exec(rest)) && (inline || display || envDepth)) {
+          braces.push(true);
+          textDepth++;
+          i += m[0].length - 1;
+          continue;
+        }
+        i++;  // escaped character, e.g. \$ or \{
+        continue;
+      }
+
+      if (isTex && codeEnv) continue;
+      if (isTex && c === '%') break;  // comment runs to end of line
+      if (!isTex && c === '`') { inlineCode = true; continue; }
+
+      if (c === '{') { braces.push(false); continue; }
+      if (c === '}') { if (braces.pop()) textDepth--; continue; }
+
+      if (c === '$') {
+        if (line[i + 1] === '$') { display = !display; inline = false; i++; }
+        else if (!display) inline = !inline;
+        if (!inline && !display && !envDepth) { braces = []; textDepth = 0; }
+      }
+    }
+
+    if (!isTex && inlineCode && !last) inlineCode = false;  // `code` never spans lines
+  }
+
+  const code = isTex ? codeEnv > 0 : (fence || inlineCode);
+  const inMaths = (inline || display || envDepth > 0) && textDepth === 0;
+  return { math: inMaths && !code, code };
 }
-// True inside a verbatim / code environment.
-function code(context) {
-    return context.scopes.some(s =>
-        s.includes("markup.raw") ||
-        s.includes("environment.verbatim") ||
-        s.includes("source.python") ||
-        s.includes("source.cpp")
-    )
+
+let lastKey = null, lastState = { math: false, code: false };
+function contextState() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return { math: false, code: false };
+  const doc = editor.document;
+  const pos = editor.selection.active;
+  const key = doc.uri.toString() + '|' + doc.version + '|' + pos.line + '|' + pos.character;
+  if (key !== lastKey) {
+    lastKey = key;
+    const before = doc.getText(new vscode.Range(new vscode.Position(0, 0), pos));
+    lastState = scanContext(before, doc.languageId);
+  }
+  return lastState;
 }
+
+function math(context) { return contextState().math; }
+function code(context) { return contextState().code; }
+
+// Text produced by JavaScript still goes through VS Code's snippet parser,
+// where \ and } are special. (HyperSnips escapes $ itself.)
+function lit(s) { return String(s).replace(/[\\}]/g, (c) => '\\' + c); }
 endglobal
-
 '''
 
-PREAMBLE_MD = r'''# ==========================================================================
-#  markdown.hsnips -- ported from Sorin's Obsidian Latex Suite snippets
+HEADER = """# ==========================================================================
+#  %s -- generated from Sorin's Obsidian Latex Suite snippets
 #
-#  DO NOT EDIT BY HAND if you want to keep syncing from Obsidian:
-#  edit snippets in Obsidian, then re-run  python build/port_snippets.py
-#
-#  Same snippets as latex.hsnips, but the math detector understands the
-#  $...$ / $$...$$ spans that VS Code's markdown grammar marks up.
+#  DO NOT EDIT BY HAND: edit snippets in Obsidian, then run
+#      python build/port_snippets.py --install
+#  Put hand-written snippets in build/manual_snippets.hsnips instead.
 # ==========================================================================
 
-global
-// True when the cursor sits inside $...$ or $$...$$ in a .md file.
-function math(context) {
-    return context.scopes.some(s =>
-        s.includes("math") ||
-        s.startsWith("meta.embedded.math")
-    )
-}
-function code(context) {
-    return context.scopes.some(s =>
-        s.includes("markup.raw") ||
-        s.includes("markup.fenced_code") ||
-        s.startsWith("meta.embedded.block")
-    )
-}
-endglobal
-
-'''
+"""
 
 
-def emit(snippets, variables, preamble, path, stats, manual=""):
-    lines = [preamble]
+def emit(snippets, variables, path, stats, manual=""):
+    lines = [HEADER % path.name, GLOBAL_BLOCK]
     current_section = None
 
     for sn in snippets:
@@ -463,18 +575,13 @@ def emit(snippets, variables, preamble, path, stats, manual=""):
             stats["skipped_incomplete"] += 1
             continue
 
-        # Latex Suite allows `replacement` to be a JS function. HyperSnips can
-        # express these too, but not mechanically -- they are hand-ported in
-        # build/manual_snippets.hsnips and appended below.
         if isinstance(repl, dict) and "__function__" in repl:
             stats["function_snippets"].append(
                 trig["__regex__"] if isinstance(trig, dict) else trig
             )
             continue
 
-        # ${VISUAL} wraps a selection. HyperSnips has no equivalent, so these
-        # are emitted as native VS Code surround-with snippets instead.
-        if "${VISUAL}" in repl:
+        if isinstance(repl, str) and "${VISUAL}" in repl:
             stats["visual_snippets"].append(sn)
             continue
 
@@ -483,108 +590,140 @@ def emit(snippets, variables, preamble, path, stats, manual=""):
             opts = ""
         opts = opts.strip().strip('"').strip("'")
 
-        priority = sn.get("priority")
-
         section = sn.get("__section__")
         if section and section != current_section:
-            pad = "-" * max(4, 60 - len(section))
-            lines.append("\n# ---- %s %s\n" % (section, pad))
+            lines.append("# ---- %s %s\n" % (section, "-" * max(4, 60 - len(section))))
             current_section = section
 
-        is_regex = "r" in opts or isinstance(trig, dict)
-
-        if isinstance(trig, dict):
-            pattern = trig["__regex__"]
-            is_regex = True
-        else:
-            pattern = trig
+        is_regex = isinstance(trig, dict) or "r" in opts
+        pattern = trig["__regex__"] if isinstance(trig, dict) else trig
 
         if is_regex:
             pattern = expand_variables(pattern, variables, stats["unresolved_vars"])
-            if not pattern.endswith("$"):
-                pattern = pattern + "$"
-            trigger_field = "/%s/" % pattern
-            desc = "regex"
+            trigger_field = "`%s`" % pattern.replace("`", "\\x60")
+            bare = False
+        elif BARE_TRIGGER_RE.match(pattern):
+            trigger_field = pattern
+            bare = True
         else:
-            trigger_field = escape_trigger(pattern)
-            desc = pattern[:40].replace('"', "'")
+            # Spaces or backticks can't be a bare trigger: use an exact regex.
+            trigger_field = "`%s`" % re.escape(pattern).replace("`", "\\x60")
+            bare = False
 
-        flags = ""
-        if "A" in opts:
-            flags += "A"
-        if "w" in opts:
-            flags += "w"
-        if "i" in opts:
-            flags += "i"
+        flags = "A" if "A" in opts else ""
+        if bare:
+            flags += "w" if "w" in opts else "i"
 
-        ctx = None
         if "m" in opts:
-            ctx = "math(context)"
-        elif "n" in opts or "t" in opts:
-            ctx = "!math(context)"
+            context = "math(context)"
+        elif "t" in opts or "n" in opts:
+            context = "!math(context) && !code(context)"
         elif "c" in opts:
-            ctx = "code(context)"
+            context = "code(context)"
+        else:
+            context = None
 
-        body = convert_body(repl, is_regex=is_regex)
+        desc = sn.get("description") or ("regex" if is_regex else pattern)
+        desc = re.sub(r"\s+", " ", str(desc)).replace('"', "'").strip() or "snippet"
 
-        if priority not in (None, "", "0"):
-            try:
-                lines.append("priority %d" % int(priority))
-            except (TypeError, ValueError):
-                pass
-        if ctx:
-            lines.append("context %s" % ctx)
+        priority = sn.get("priority")
+        try:
+            priority = int(priority) if priority not in (None, "") else 0
+        except (TypeError, ValueError):
+            priority = 0
 
-        lines.append('snippet %s "%s" %s' % (trigger_field, desc, flags))
-        lines.append(body)
+        if priority:
+            lines.append("priority %d" % priority)
+        if context:
+            lines.append("context %s" % context)
+        header = 'snippet %s "%s"' % (trigger_field, desc)
+        if flags:
+            header += " " + flags
+        lines.append(header)
+        lines.append(segments_to_hsnips(to_segments(repl, is_regex)))
         lines.append("endsnippet")
         lines.append("")
         stats["emitted"] += 1
 
     if manual:
-        lines.append("\n# ---- hand-ported snippets (build/manual_snippets.hsnips) ----\n")
+        lines.append("# ---- hand-ported (build/manual_snippets.hsnips) " + "-" * 20 + "\n")
         lines.append(manual)
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 # --------------------------------------------------------------------------
-# ${VISUAL} snippets -> native VS Code "surround with" snippets
+# ${VISUAL} snippets -> VS Code surround-with snippets
 # --------------------------------------------------------------------------
+
+VISUAL_NAMES = {
+    "U": "underbrace", "B": "underset", "C": "cancel", "K": "cancelto",
+    "S": "sqrt", "(": "parens", "[": "brackets", "{": "braces",
+}
+
 
 def emit_visual_snippets(visual, path):
     """
-    Latex Suite's ${VISUAL} wraps the current selection. HyperSnips cannot do
-    this, but VS Code's own snippet engine can via $TM_SELECTED_TEXT, driven by
-    the `editor.action.surroundWith` command (bound to Ctrl+Alt+S in
-    keybindings.json). Select an expression, hit the key, pick the wrapper.
+    Latex Suite's ${VISUAL} wraps the selection. HyperSnips can't; VS Code's
+    own engine can, via $TM_SELECTED_TEXT and editor.action.surroundWith
+    (Ctrl+Alt+S in keybindings-to-copy.json).
     """
-    out = {}
+    payload = {}
     for sn in visual:
-        trig = sn["trigger"]
-        repl = sn["replacement"]
-        body = repl.replace("${VISUAL}", "$TM_SELECTED_TEXT")
-        name = {
-            "U": "underbrace", "B": "underset", "C": "cancel",
-            "K": "cancelto", "S": "sqrt",
-            "(": "parens", "[": "brackets", "{": "braces",
-        }.get(trig, "wrap-" + trig)
-        out["Surround: %s" % name] = {
+        trig = sn["trigger"] if isinstance(sn["trigger"], str) else "regex"
+        name = VISUAL_NAMES.get(trig, "wrap-" + trig)
+        segs = to_segments(sn["replacement"], False, visual_token="$TM_SELECTED_TEXT")
+        payload["Surround: %s" % name] = {
+            "scope": "latex,markdown",
             "prefix": "surround-%s" % name,
-            "body": [body],
-            "description": "Wrap selection: %s (was Latex Suite '%s')" % (name, trig),
+            "body": [segments_to_vscode(segs)],
+            "description": "Wrap selection: %s (Latex Suite '%s')" % (name, trig),
         }
-
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "//": "Generated by build/port_snippets.py -- Latex Suite ${VISUAL} snippets."
-              " Select text, press Ctrl+Alt+S, choose one.",
-    }
-    payload.update(out)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-    return len(out)
+    return len(payload)
 
+
+# --------------------------------------------------------------------------
+# Install into HyperSnips' own folder
+# --------------------------------------------------------------------------
+
+def global_hsnips_dir():
+    """Where HyperSnips looks when hsnips.hsnipsPath is not set."""
+    if os.name == "nt":
+        base = os.environ.get("APPDATA")
+        if not base:
+            return None
+        user = Path(base) / "Code" / "User"
+    elif sys.platform == "darwin":
+        user = Path.home() / "Library" / "Application Support" / "Code" / "User"
+    else:
+        user = Path.home() / ".config" / "Code" / "User"
+    return user / "globalStorage" / "draivin.hsnips" / "hsnips"
+
+
+def install_globally():
+    dest = global_hsnips_dir()
+    if dest is None:
+        print("Could not work out the VS Code user folder; skipping install.")
+        return
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("latex.hsnips", "markdown.hsnips"):
+        target = dest / name
+        if target.exists():
+            backup = BACKUP_DIR / name
+            if not backup.exists():
+                BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(target, backup)
+                print("Backed up your existing %s -> %s" % (name, backup))
+        shutil.copy2(ROOT / "hsnips" / name, target)
+    print("Installed  %s" % dest)
+
+
+# --------------------------------------------------------------------------
+# Driver
+# --------------------------------------------------------------------------
 
 def attach_sections(raw_src, snippets):
     """Best-effort: tag each snippet with the nearest preceding // comment."""
@@ -604,37 +743,6 @@ def attach_sections(raw_src, snippets):
     return snippets
 
 
-def global_hsnips_dir():
-    """
-    HyperSnips' own snippets folder.
-
-    The workspace sets hsnips.hsnipsPath, but that setting is read verbatim --
-    it does not expand ${workspaceFolder} in every version. Installing a copy
-    here means the snippets load no matter what, from any folder.
-    """
-    if os.name == "nt":
-        base = os.environ.get("APPDATA")
-        if not base:
-            return None
-        return Path(base) / "Code" / "User" / "hsnips"
-    if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "hsnips"
-    return Path.home() / ".config" / "Code" / "User" / "hsnips"
-
-
-def install_globally():
-    dest = global_hsnips_dir()
-    if dest is None:
-        print("Could not work out the VS Code user folder; skipping install.")
-        return
-    dest.mkdir(parents=True, exist_ok=True)
-    for name in ("latex.hsnips", "markdown.hsnips"):
-        src = ROOT / "hsnips" / name
-        if src.exists():
-            shutil.copy2(src, dest / name)
-    print("Installed  %s" % dest)
-
-
 def main():
     argv = [a for a in sys.argv[1:] if a != "--install"]
     do_install = "--install" in sys.argv
@@ -646,54 +754,38 @@ def main():
     raw_snippets = data.get("snippets", "")
     variables = load_snippet_variables(data.get("snippetVariables", ""))
 
-    snippets = Scanner(raw_snippets).read_array_of_objects()
-    snippets = attach_sections(raw_snippets, snippets)
+    snippets = attach_sections(raw_snippets, Scanner(raw_snippets).read_array_of_objects())
 
     manual_path = HERE / "manual_snippets.hsnips"
     manual = manual_path.read_text(encoding="utf-8") if manual_path.exists() else ""
 
     def fresh():
-        return {
-            "emitted": 0,
-            "skipped_incomplete": 0,
-            "function_snippets": [],
-            "visual_snippets": [],
-            "unresolved_vars": set(),
-        }
+        return {"emitted": 0, "skipped_incomplete": 0, "function_snippets": [],
+                "visual_snippets": [], "unresolved_vars": set()}
 
-    tex_stats = fresh()
-    emit(snippets, variables, PREAMBLE_TEX,
-         ROOT / "hsnips" / "latex.hsnips", tex_stats, manual)
-
-    md_stats = fresh()
-    emit(snippets, variables, PREAMBLE_MD,
-         ROOT / "hsnips" / "markdown.hsnips", md_stats, manual)
-
-    n_visual = emit_visual_snippets(
-        tex_stats["visual_snippets"],
-        ROOT / ".vscode" / "latex-visual.code-snippets",
-    )
+    tex = fresh()
+    emit(snippets, variables, ROOT / "hsnips" / "latex.hsnips", tex, manual)
+    md = fresh()
+    emit(snippets, variables, ROOT / "hsnips" / "markdown.hsnips", md, manual)
+    n_visual = emit_visual_snippets(tex["visual_snippets"],
+                                    ROOT / ".vscode" / "latex-visual.code-snippets")
 
     print("Parsed    %d snippets from %s" % (len(snippets), data_json.name))
-    print("Variables %s" % (", ".join(variables) if variables else "none"))
-    print("Wrote     hsnips/latex.hsnips                  (%d snippets)" % tex_stats["emitted"])
-    print("Wrote     hsnips/markdown.hsnips               (%d snippets)" % md_stats["emitted"])
+    print("Wrote     hsnips/latex.hsnips                  (%d)" % tex["emitted"])
+    print("Wrote     hsnips/markdown.hsnips               (%d)" % md["emitted"])
     print("Wrote     .vscode/latex-visual.code-snippets   (%d surround-with)" % n_visual)
     if manual:
         print("Appended  build/manual_snippets.hsnips")
-    if tex_stats["function_snippets"]:
-        print("\nFunction snippets (hand-ported in build/manual_snippets.hsnips):")
-        for t in tex_stats["function_snippets"]:
-            print("    %s" % t)
-    if tex_stats["unresolved_vars"]:
-        print("\nWARNING unresolved snippet variables: %s"
-              % ", ".join(sorted(tex_stats["unresolved_vars"])))
-    if tex_stats["skipped_incomplete"]:
-        print("\nSkipped   %d malformed entries" % tex_stats["skipped_incomplete"])
+    if tex["function_snippets"]:
+        print("Function snippets (hand-ported): %s" % ", ".join(tex["function_snippets"]))
+    if tex["unresolved_vars"]:
+        print("WARNING unresolved variables: %s" % ", ".join(sorted(tex["unresolved_vars"])))
+    if tex["skipped_incomplete"]:
+        print("Skipped   %d malformed entries" % tex["skipped_incomplete"])
 
     if do_install:
-        print()
         install_globally()
+    print("\nVerify with:  node build/test_snippets.js")
 
 
 if __name__ == "__main__":
