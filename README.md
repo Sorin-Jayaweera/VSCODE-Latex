@@ -7,23 +7,47 @@ the same Tokyo Night look, the same 559 notes — plus real LaTeX when you want 
 
 ## 1. One-time setup (about three minutes)
 
-**Install two extensions.** Open this folder in VS Code; it will offer them.
-Or run:
+Both required extensions — **LaTeX Workshop** and **HyperSnips** — are already
+installed on this machine, and the snippets are already installed into VS Code's
+own folder. Three steps remain.
 
-```bash
-code --install-extension james-yu.latex-workshop --install-extension draivin.hsnips
-```
+### Step 1 — disable the conflicting extensions (important)
 
-| Extension | What it does here |
-| --- | --- |
-| **LaTeX Workshop** | Compiles, shows the PDF side by side, SyncTeX, hover math preview |
-| **HyperSnips** | Runs your ported Latex Suite snippets — auto-expanding, math-aware |
+You have several overlapping LaTeX extensions. Two of them will actively break
+this setup:
 
-**Copy the keybindings.** VS Code stores these per-user, so the repo can't set
-them. Open `Ctrl+Shift+P` → *Preferences: Open Keyboard Shortcuts (JSON)* and
-paste in the entries from [.vscode/keybindings-to-copy.json](.vscode/keybindings-to-copy.json).
+| Extension | Problem | Do |
+| --- | --- | --- |
+| `oskar-idland.hypersnipsv2` | A fork of HyperSnips. Both read the same `.hsnips` files, so **every snippet fires twice** — you'd get `\alpha\alpha`. | **Disable** |
+| `jeffersonqin.latex-snippets-jeff` | Ships its own LaTeX snippet triggers that collide with yours. | **Disable** |
+| `mathematic.vscode-latex` | Duplicate LaTeX language grammar; fights LaTeX Workshop's scopes, which is what snippet math-detection depends on. | **Disable** |
+| `torn4dom4n.latex-support` | Same. | **Disable** |
+| `tecosaur.latex-utilities` | Designed to complement LaTeX Workshop. | Keep |
 
-That's it. TeX Live 2025 and Python are already on this machine.
+`Ctrl+Shift+X`, search each name, gear icon → **Disable**. Reload the window
+afterwards.
+
+### Step 2 — copy the keybindings
+
+VS Code stores these per-user, so the repo can't set them. Open
+`Ctrl+Shift+P` → *Preferences: Open Keyboard Shortcuts (JSON)* and paste the
+entries from
+[.vscode/keybindings-to-copy.json](.vscode/keybindings-to-copy.json) inside the
+existing `[ ... ]`. You already have two entries in there; keep them.
+
+### Step 3 — open this folder and check it works
+
+`File → Open Folder` → this folder. Then:
+
+1. Open `template.tex`, press `Ctrl+Alt+B`. A PDF should appear beside it.
+2. In the same file, inside any `$...$`, type `sq` — it should become
+   `\sqrt[]{ }` with the cursor inside, without pressing Tab.
+3. Open any note under `notes/`, press `Ctrl+Alt+V`. Math should render live.
+
+If step 2 does nothing, Step 1 was skipped or the window needs reloading.
+
+TeX Live 2025 and Python are already on this machine, so there is nothing else
+to install.
 
 ---
 
@@ -141,6 +165,17 @@ python build/port_snippets.py
 
 It reads Latex Suite's `data.json` directly, so Obsidian stays the place you
 manage snippets.
+
+Add `--install` to also copy them into VS Code's own snippets folder
+(`%APPDATA%\Code\User\hsnips`), which is where HyperSnips looks by default:
+
+```bash
+python build/port_snippets.py --install
+```
+
+That has already been done once. Use it again after any re-sync — otherwise the
+new snippets only exist in this repo, and HyperSnips may not pick them up from
+here depending on how it resolves `hsnips.hsnipsPath`.
 
 ---
 

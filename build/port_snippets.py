@@ -24,7 +24,9 @@ Latex Suite option flags and how they map:
 """
 
 import json
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -602,8 +604,41 @@ def attach_sections(raw_src, snippets):
     return snippets
 
 
+def global_hsnips_dir():
+    """
+    HyperSnips' own snippets folder.
+
+    The workspace sets hsnips.hsnipsPath, but that setting is read verbatim --
+    it does not expand ${workspaceFolder} in every version. Installing a copy
+    here means the snippets load no matter what, from any folder.
+    """
+    if os.name == "nt":
+        base = os.environ.get("APPDATA")
+        if not base:
+            return None
+        return Path(base) / "Code" / "User" / "hsnips"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "hsnips"
+    return Path.home() / ".config" / "Code" / "User" / "hsnips"
+
+
+def install_globally():
+    dest = global_hsnips_dir()
+    if dest is None:
+        print("Could not work out the VS Code user folder; skipping install.")
+        return
+    dest.mkdir(parents=True, exist_ok=True)
+    for name in ("latex.hsnips", "markdown.hsnips"):
+        src = ROOT / "hsnips" / name
+        if src.exists():
+            shutil.copy2(src, dest / name)
+    print("Installed  %s" % dest)
+
+
 def main():
-    data_json = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DATA_JSON
+    argv = [a for a in sys.argv[1:] if a != "--install"]
+    do_install = "--install" in sys.argv
+    data_json = Path(argv[0]) if argv else DEFAULT_DATA_JSON
     if not data_json.exists():
         sys.exit("Could not find Latex Suite data.json at:\n  %s" % data_json)
 
@@ -655,6 +690,10 @@ def main():
               % ", ".join(sorted(tex_stats["unresolved_vars"])))
     if tex_stats["skipped_incomplete"]:
         print("\nSkipped   %d malformed entries" % tex_stats["skipped_incomplete"])
+
+    if do_install:
+        print()
+        install_globally()
 
 
 if __name__ == "__main__":
