@@ -41,5 +41,17 @@
     "key": "ctrl+alt+v",
     "command": "markdown.showPreviewToSide",
     "when": "editorLangId == 'markdown'"
+  },
+  {
+    // Native VS Code snippet tabstops for Sorin Latex Suite Auto.
+    // This wins over HyperSnips' Tab binding while a native snippet is active.
+    "key": "tab",
+    "command": "jumpToNextSnippetPlaceholder",
+    "when": "editorTextFocus && inSnippetMode && hasNextTabstop && !suggestWidgetVisible"
+  },
+  {
+    "key": "shift+tab",
+    "command": "jumpToPrevSnippetPlaceholder",
+    "when": "editorTextFocus && inSnippetMode && hasPrevTabstop && !suggestWidgetVisible"
   }
 ]

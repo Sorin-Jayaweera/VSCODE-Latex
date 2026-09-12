@@ -336,7 +336,7 @@
 % Oversized images are clamped so a screenshot never overflows the page.
 \newcommand{\embed}[2][0.8\linewidth]{%
   \begin{center}%
-    \includegraphics[width=#1,height=0.8\textheight,keepaspectratio]{#2}%
+    \includegraphics[width=#1,height=0.8\textheight,keepaspectratio]{\detokenize{#2}}%
   \end{center}%
 }
 

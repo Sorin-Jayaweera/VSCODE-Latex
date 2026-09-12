@@ -71,7 +71,7 @@ function resolveTarget(name, docPath, wantMarkdown) {
 function relativeHref(md, target, docPath) {
   const from = docPath ? path.dirname(docPath) : process.cwd();
   const rel = path.relative(from, target).split(path.sep).join('/');
-  return md.normalizeLink(rel);
+  return md.normalizeLink(encodeURI(rel));
 }
 
 function obsidianPlugin(md) {

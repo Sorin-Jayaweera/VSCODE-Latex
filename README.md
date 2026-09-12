@@ -164,6 +164,9 @@ order (`//` puts you in the numerator first).
 The same snippets are also ported into [`hsnips/`](hsnips/) so HyperSnips can
 serve as a fallback and so the generated files remain inspectable.
 
+Tabstops use VS Code's native snippet navigation. After `der`, `//`, `dint`,
+etc. expand, press `Tab` / `Shift+Tab` to move through the important fields.
+
 **Selection wrappers** (`U` underbrace, `C` cancel, `S` sqrt, brackets): select
 the expression, `Ctrl+Alt+S`, pick one. HyperSnips can't do Latex Suite's
 `${VISUAL}`.
