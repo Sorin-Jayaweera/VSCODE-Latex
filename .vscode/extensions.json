@@ -2,7 +2,14 @@
   "recommendations": [
     "james-yu.latex-workshop",
     "draivin.hsnips",
+    "draivin.hscopes",
+    "tecosaur.latex-utilities",
     "streetsidesoftware.code-spell-checker"
   ],
-  "unwantedRecommendations": []
+  "unwantedRecommendations": [
+    "oskar-idland.hypersnipsv2",
+    "jeffersonqin.latex-snippets-jeff",
+    "mathematic.vscode-latex",
+    "torn4dom4n.latex-support"
+  ]
 }
