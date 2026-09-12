@@ -1,0 +1,635 @@
+# SYNTAX
+## A : automatic (no <TAB> required)
+## i : in-word (no preceding whitespace required)
+## w : word boundary (any preceding word boundary allowed)
+## b : line-begin (new line required)
+
+snippet mk "Inline math" wA
+$$1$$0
+endsnippet
+
+snippet dm "Display math" wA
+\[ $1 \]$0
+endsnippet
+
+snippet itet "Align intertext" bA
+\intertext{$1}
+$0
+endsnippet
+
+snippet includegraphics "includegraphics" bA
+\begin{center}
+    \includegraphics[width=0.35\textwidth]{figures/$0}
+\end{center}
+endsnippet
+
+#######################################
+# QUANTUM MECHANICS
+#######################################
+
+snippet ket "ket" miA
+\ket{$1}$0
+endsnippet
+
+
+snippet bra "bra" miA
+\bra{$1}$0
+endsnippet
+
+
+snippet obrkt "braket with operator" miA
+\braketop{$1}{$2}{$3}$0
+endsnippet
+
+
+snippet brkt "braket" miA
+\braket{$1}{$2}$0
+endsnippet
+
+#######################################
+# LINEAR ALGEBRA
+#######################################
+
+snippet lincomb "linear combination" miA
+$1_1 $2_1 + $1_2 $2_2 + \cdots + $1_$3 $2_$3
+endsnippet
+
+
+snippet vec "vector" miA
+\vec{$1} $0
+endsnippet
+
+snippet cvec "column vector" miA
+\begin{bmatrix} $1 \\\\ $2 \\\\ \vdots \\\\ $3 \end{bmatrix}
+endsnippet
+
+
+snippet rvec "row vector" miA
+\begin{bmatrix} $1 & $2 & \cdots & $3 \end{bmatrix}
+endsnippet
+
+
+snippet `2(bv)mat` "2x2 matrix" miA
+\begin{``rv=m[1]``matrix} $1 & $2 \\\\ $3 & $4 \end{``rv=m[1]``matrix}$0
+endsnippet
+
+
+snippet `3([bv])mat` "3x3 matrix" miA
+\begin{``rv=m[1]``matrix} $1 & $2 & $3 \\\\ $4 & $5 & $6 \\\\ $7 & $8 & $9 \end{``rv=m[1]``matrix}$0
+endsnippet
+
+
+snippet `4([bv])mat` "4x4 matrix" miA
+\begin{``rv=m[1]``matrix} $1 & $2 & $3 & $4 \\\\ $5 & $6 & $7 & $8 \\\\ $9 & $10 & $11 & $12 \\\\ $13 & $14 & $15 & $16 \end{``rv=m[1]``matrix}$0
+endsnippet
+
+
+snippet bmatrix "empty matrix" miA
+\begin{bmatrix} $1 \end{bmatrix}$0
+endsnippet
+
+
+snippet 2row "matrix 2-row" mA
+$1 & $2
+endsnippet
+
+
+snippet 3row "matrix 3-row" mA
+$1 & $2 & $3
+endsnippet
+
+
+snippet 4row "matrix 4-row" mA
+$1 & $2 & $3 & $4
+endsnippet
+
+
+snippet 5row "matrix 5-row" mA
+$1 & $2 & $3 & $4 & $5
+endsnippet
+
+#######################################
+# CALCULUS
+#######################################
+
+snippet limto "limit" mwA
+\lim_{$1 \to $2}$0
+endsnippet
+
+
+snippet `dd([xt])` "derivative operator" mwA
+\frac{d}{d``rv=m[1]``}
+endsnippet
+
+
+snippet `pa([xt])` "partial operator" mwA
+\frac{\partial}{\partial ``rv=m[1]``}
+endsnippet
+
+
+snippet dd1 "ordinary derivative" mwA
+\frac{d$1}{d$2}$0
+endsnippet
+
+
+snippet dd2 "second derivative" mwA
+\frac{d^2 $1}{d $2^2}$0
+endsnippet
+
+
+snippet pa1 "partial derivative" mwA
+\frac{\partial $1}{\partial $2}$0
+endsnippet
+
+
+snippet pa2 "second partial" mwA
+\frac{\partial^2 $1}{\partial $2^2}$0
+endsnippet
+
+
+snippet dint "definite integral" mwA
+\int_{$1}^{$2}$0
+endsnippet
+
+#######################################
+# OPERATIONS
+#######################################
+
+snippet // "fraction" miA
+\frac{$1}{$2}$0
+endsnippet
+
+
+snippet `((\d+)|(\d*)(\\)?([A-Za-z]+)((\^|_)(\{\d+\}|\d))*)/` "fymbol fraction" mwA
+\frac{``rv = m[1]``}{$1}$0
+endsnippet
+
+
+snippet `([A-Za-z])(\d)` "single subscript" mwA
+``rv = m[1]``_``rv = m[2]``
+endsnippet
+
+
+snippet `([A-Za-z])_(\d\d)` "double subscript" mwA
+``rv = m[1]``_{``rv = m[2]``}
+endsnippet
+
+
+snippet __ "subscript" miA
+_{$1}$0
+endsnippet
+
+
+snippet sr "squared" miA
+^2
+endsnippet
+
+
+snippet cb "cubed" miA
+^3
+endsnippet
+
+
+snippet invs "inverse" miA
+^{-1}
+endsnippet
+
+
+snippet td "superscript" miA
+^{$1}$0
+endsnippet
+
+
+snippet sq "square root" miA
+\sqrt{$1}$0
+endsnippet
+
+
+snippet sum "sum" mwA
+\sum_{$1}^{$2}$0
+endsnippet
+
+
+snippet prod "product" mwA
+\prod_{$1}^{$2}$0
+endsnippet
+
+#######################################
+# MISCELLANEOUS
+#######################################
+
+snippet indlist "indexed list" miA
+$1_1, $1_2, \ldots, $1_$2
+endsnippet
+
+
+snippet ... "ldots" miA
+\ldots
+endsnippet
+
+
+snippet Rn "\R^n" miA
+\R^n
+endsnippet
+
+
+snippet bf "math boldface" miA
+\mbf{$1}$0
+endsnippet
+
+
+snippet pfn "plaintext function" miA
+\pfn{$1}$0
+endsnippet
+
+
+snippet ncr "combination" miA
+{$1 \choose $2}$0
+endsnippet
+
+
+snippet sin "sine" miA
+\sin
+endsnippet
+
+
+snippet cos "cosine" miA
+\cos
+endsnippet
+
+#######################################
+# DELIMITERS
+#######################################
+
+snippet lr() "parentheses" miA
+\left( $1 \right)$0
+endsnippet
+
+
+snippet lr[] "brackets" miA
+\left[ $1 \right]$0
+endsnippet
+
+
+snippet lr{} "braces" miA
+\left\{ $1 \right\\}$0
+endsnippet
+
+
+snippet 2lr| "double bars" miA
+\left\| $1 \right\|$0
+endsnippet
+
+
+snippet lr| "single bars" miA
+\left| $1 \right|$0
+endsnippet
+
+
+snippet lra "angles" miA
+\left< $1 \right>$0
+endsnippet
+
+
+snippet lrf "floor" miA
+\left\lfloor $1 \right\rfloor$0
+endsnippet
+
+
+snippet lrc "floor" miA
+\left\lceil $1 \right\rceil$0
+endsnippet
+
+#######################################
+# ENVIRONMENTS
+#######################################
+snippet beg "begin/end" biA
+\begin{$1}
+	$2
+\end{$1}
+$0
+endsnippet
+
+snippet def "definition" biA
+\begin{definition}[$1]
+	$2
+\end{definition}
+$0
+endsnippet
+
+snippet thm "theorem" biA
+\begin{theorem}[$1]
+	$2
+\end{theorem}
+$0
+endsnippet
+
+snippet lem "lemma" biA
+\begin{lemma}[$1]
+	$2
+\end{lemma}
+$0
+endsnippet
+
+snippet cor "corollary" biA
+\begin{corollary}[$1]
+	$2
+\end{corollary}
+$0
+endsnippet
+
+snippet pf "proof" biA
+\begin{proof}
+	$1
+\end{proof}
+$0
+endsnippet
+
+snippet ex "example" biA
+\begin{example}[$1]
+	$2
+\end{example}
+$0
+endsnippet
+
+snippet bull "itemize" biA
+\begin{itemize}[topsep=0pt]
+	\item $1
+\end{itemize}
+$0
+endsnippet
+
+snippet enum "enumerate" biA
+\begin{enumerate}[topsep=0pt]
+	\item $1
+\end{enumerate}
+$0
+endsnippet
+
+snippet alph "alph-enumerate" biA
+\begin{enumerate}[label=(\alph*),topsep=0pt]
+	\item $1
+\end{enumerate}
+$0
+endsnippet
+
+snippet gath "gather" biA
+\begin{gather*}
+	$1
+\end{gather*}
+$0
+endsnippet
+
+snippet algn "align" biA
+\begin{align*}
+	$1
+\end{align*}
+$0
+endsnippet
+
+snippet te "align" bi
+\text{$1}$0
+endsnippet
+
+snippet bcases "cases" miA
+\begin{cases} $1 \end{cases}$0
+endsnippet
+
+#######################################
+# GREEK LETTERS
+#######################################
+
+snippet ;a "alpha" miA
+\alpha
+endsnippet
+
+snippet tau "alpha" miA
+\tau
+endsnippet
+
+
+snippet al "alpha" miA
+\alpha
+endsnippet
+
+snippet @a "alpha" miA
+\alpha
+endsnippet
+
+snippet ;b "beta" miA
+\beta
+endsnippet
+
+
+snippet ;g "gamma" miA
+\gamma
+endsnippet
+
+
+snippet ;G "Gamma" miA
+\Gamma
+endsnippet
+
+snippet ;d "delta" miA
+\delta
+endsnippet
+
+snippet dta "delta" miA
+\delta
+endsnippet
+
+
+snippet @d "delta" miA
+\delta
+endsnippet
+
+snippet @n "nabla" miA
+\nabla
+endsnippet
+
+snippet nab "nabla" miA
+\nabla
+endsnippet
+
+snippet del "nabla" miA
+\nabla
+endsnippet
+
+
+
+snippet ;D "Delta" miA
+\Delta
+endsnippet
+
+snippet @D "Delta" miA
+\Delta
+endsnippet
+
+
+snippet ;e "epsilon" miA
+\epsilon
+endsnippet
+
+
+snippet :e "curly epsilon" miA
+\varepsilon
+endsnippet
+
+
+snippet ;z "zeta" miA
+\zeta
+endsnippet
+
+
+snippet ;n "eta" miA
+\eta
+endsnippet
+
+
+snippet ;h "theta" miA
+\theta
+endsnippet
+
+
+snippet ;H "Theta" miA
+\Theta
+endsnippet
+
+
+snippet ;i "iota" miA
+\iota
+endsnippet
+
+
+snippet ;k "kappa" miA
+\kappa
+endsnippet
+
+
+snippet ;l "lambda" miA
+\lambda
+endsnippet
+
+
+snippet ;L "Lambda" miA
+\Lambda
+endsnippet
+
+
+snippet ;m "mu" miA
+\mu
+endsnippet
+
+
+snippet ;v "nu" miA
+\nu
+endsnippet
+
+
+snippet ;x "xi" miA
+\xi
+endsnippet
+
+
+snippet ;X "Xi" miA
+\Xi
+endsnippet
+
+
+snippet ;p "pi" miA
+\pi
+endsnippet
+
+
+snippet ;P "Pi" miA
+\Pi
+endsnippet
+
+
+snippet ;r "rho" miA
+\rho
+endsnippet
+
+
+snippet ;s "sigma" miA
+\sigma
+endsnippet
+
+
+snippet ;S "Sigma" miA
+\Sigma
+endsnippet
+
+
+snippet ;t "tau" miA
+\tau
+endsnippet
+
+snippet ;u "upsilon" miA
+\upsilon
+endsnippet
+
+
+snippet ;U "Upsilon" miA
+\Upsilon
+endsnippet
+
+
+snippet ;f "phi" miA
+\phi
+endsnippet
+
+
+snippet ;F "Phi" miA
+\Phi
+endsnippet
+
+
+snippet :f "curly phi" miA
+\varphi
+endsnippet
+
+
+snippet ;c "chi" miA
+\chi
+endsnippet
+
+
+snippet ;w "psi" miA
+\psi
+endsnippet
+
+
+snippet psi "psi" miA
+\psi
+endsnippet
+
+
+snippet ;W "Psi" miA
+\Psi
+endsnippet
+
+
+snippet Psi "Psi" miA
+\Psi
+endsnippet
+
+
+snippet ;o "omega" miA
+\omega
+endsnippet
+
+
+snippet @o "omega" miA
+\omega
+endsnippet
+
+
+snippet ome "omega" miA
+\omega
+endsnippet
+
+
+snippet ;O "Omega" miA
+\Omega
+endsnippet

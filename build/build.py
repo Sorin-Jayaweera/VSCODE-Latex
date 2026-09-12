@@ -36,6 +36,27 @@ def texinputs():
     return env
 
 
+def ensure_class_installed():
+    """
+    Keep the copy in TEXMFHOME in step with tex/.
+
+    The class lives in TEXMFHOME so that LaTeX Workshop -- which does not
+    expand ${workspaceFolder} in a tool's env, and so never receives our
+    TEXINPUTS -- can still find it. Refreshing here means editing tex/ is
+    enough; nobody has to remember to reinstall.
+    """
+    try:
+        sys.path.insert(0, str(HERE))
+        import install_class
+
+        if install_class.needs_install():
+            install_class.install(quiet=True)
+            print("(refreshed hmcnote.cls in TEXMFHOME)")
+    except Exception as exc:  # never let this break a build
+        print("Warning: could not refresh the installed class: %s" % exc,
+              file=sys.stderr)
+
+
 def run_latex(tex_path, out_dir, engine="lualatex", passes=2, quiet=True):
     tex_path = Path(tex_path).resolve()
     out_dir = Path(out_dir).resolve()
@@ -48,7 +69,9 @@ def run_latex(tex_path, out_dir, engine="lualatex", passes=2, quiet=True):
         "-output-directory=%s" % out_dir,
     ]
 
+    pdf = out_dir / (tex_path.stem + ".pdf")
     log_tail = ""
+    rc = 0
     for i in range(passes):
         proc = subprocess.run(
             cmd_base + [tex_path.name],
@@ -59,19 +82,31 @@ def run_latex(tex_path, out_dir, engine="lualatex", passes=2, quiet=True):
             errors="replace",
         )
         log_tail = proc.stdout
-        pdf = out_dir / (tex_path.stem + ".pdf")
-        if proc.returncode != 0 and not pdf.exists():
-            errs = [
-                l for l in log_tail.splitlines()
-                if l.startswith("!") or ".tex:" in l and "Error" in l
-            ]
-            print("LaTeX failed on pass %d:" % (i + 1), file=sys.stderr)
-            for e in errs[:12]:
-                print("   ", e, file=sys.stderr)
-            if not errs:
-                print("\n".join(log_tail.splitlines()[-25:]), file=sys.stderr)
-            return None
-    return out_dir / (tex_path.stem + ".pdf")
+        rc = proc.returncode
+        if rc != 0:
+            break
+
+    # A failed run can still leave a truncated PDF from an earlier pass, so
+    # trust the exit status, not the file's existence -- otherwise a broken
+    # build gets reported as a success.
+    if rc != 0:
+        errs = [
+            l for l in log_tail.splitlines()
+            if l.startswith("!") or (".tex:" in l and "rror" in l)
+        ]
+        print("LaTeX failed (pass %d):" % (i + 1), file=sys.stderr)
+        for e in errs[:12]:
+            print("   ", e, file=sys.stderr)
+        if not errs:
+            print("\n".join(log_tail.splitlines()[-25:]), file=sys.stderr)
+        if pdf.exists():
+            # Don't leave a corrupt PDF lying around pretending to be output.
+            try:
+                pdf.unlink()
+            except OSError:
+                pass
+        return None
+    return pdf
 
 
 def build_one(source, mode, engine, keep_tex, quiet=False):
@@ -143,6 +178,7 @@ def main():
     args = ap.parse_args()
 
     mode = "light" if args.light else "dark"
+    ensure_class_installed()
 
     if args.all:
         folder = Path(args.source)

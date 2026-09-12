@@ -101,11 +101,80 @@ HIGHLIGHT_RE = re.compile(r"==(.+?)==", re.DOTALL)
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".pdf", ".gif", ".bmp", ".svg", ".webp"}
 
 
+# Environments that are already a display on their own. Wrapping these in
+# \[ ... \] is a LaTeX error, even though MathJax tolerates $$\begin{align}$$.
+SELF_DISPLAY_ENVS = (
+    "align", "align*", "gather", "gather*", "equation", "equation*",
+    "multline", "multline*", "eqnarray", "eqnarray*",
+    "flalign", "flalign*", "alignat", "alignat*",
+)
+
+SELF_DISPLAY_RE = re.compile(
+    r"^\s*\\begin\{(" + "|".join(re.escape(e) for e in SELF_DISPLAY_ENVS) + r")\}"
+)
+ANY_SELF_DISPLAY_RE = re.compile(
+    r"\\begin\{(" + "|".join(re.escape(e) for e in SELF_DISPLAY_ENVS) + r")\}"
+)
+
+# Nestable equivalents, for when one of the above turns up *inside* other
+# maths. \[ \begin{align} ... \] is "Erroneous nesting of equation structures";
+# \[ \begin{aligned} ... \] is fine and looks the same.
+NESTABLE = {
+    "align": "aligned", "align*": "aligned",
+    "flalign": "aligned", "flalign*": "aligned",
+    "alignat": "aligned", "alignat*": "aligned",
+    "eqnarray": "aligned", "eqnarray*": "aligned",
+    "gather": "gathered", "gather*": "gathered",
+    "multline": "multlined", "multline*": "multlined",
+    "equation": "aligned", "equation*": "aligned",
+}
+
+
+def _make_nestable(body):
+    def begin(m):
+        return "\\begin{%s}" % NESTABLE.get(m.group(1), "aligned")
+
+    def end(m):
+        return "\\end{%s}" % NESTABLE.get(m.group(1), "aligned")
+
+    body = ANY_SELF_DISPLAY_RE.sub(begin, body)
+    body = re.compile(
+        r"\\end\{(" + "|".join(re.escape(e) for e in SELF_DISPLAY_ENVS) + r")\}"
+    ).sub(end, body)
+    return body
+
+
+def wrap_display(body):
+    r"""
+    Turn the inside of a $$...$$ into valid display maths.
+
+    Three things LaTeX cares about and MathJax does not:
+      * $$\begin{align}...\end{align}$$ must NOT get an extra \[ \]
+      * \begin{align} nested inside other maths is an error -- it has to
+        become \begin{aligned}
+      * a blank line inside display maths is an error, so they are dropped
+    """
+    lines = [l for l in body.strip().split("\n") if l.strip()]
+    body = "\n".join(lines)
+    if not body:
+        return ""
+
+    m = SELF_DISPLAY_RE.match(body)
+    if m and body.rstrip().endswith("\\end{%s}" % m.group(1)):
+        # The whole block IS the display environment: leave it alone.
+        return body
+
+    if ANY_SELF_DISPLAY_RE.search(body):
+        body = _make_nestable(body)
+
+    return "\\[\n%s\n\\]" % body
+
+
 def protect_math_and_code(text, vault):
     """Lift maths and inline code out of the text before escaping."""
 
     def keep_display(m):
-        return vault.stash("\\[\n%s\n\\]" % m.group(1).strip())
+        return vault.stash(wrap_display(m.group(1)))
 
     def keep_inline(m):
         return vault.stash("$%s$" % m.group(1))
@@ -149,9 +218,19 @@ def convert_embed(m, ctx):
 
 
 def convert_inline(text, ctx, vault):
-    """Everything that happens inside a paragraph."""
+    """Protect maths, then convert. For single-line contexts."""
     text = protect_math_and_code(text, vault)
+    return convert_protected(text, ctx, vault)
 
+
+def convert_protected(text, ctx, vault):
+    """
+    Everything after maths and code have already been lifted out.
+
+    Kept separate from convert_inline so a paragraph can be protected as a
+    whole -- a $$...$$ block spans several lines, so protecting line by line
+    would never match it -- and only then split into lines for line breaks.
+    """
     # Embeds and links become LaTeX before escaping, and are stashed so their
     # backslashes are not mangled.
     text = EMBED_RE.sub(lambda m: vault.stash(convert_embed(m, ctx)), text)
@@ -329,6 +408,8 @@ class Converter:
 
             if self._try_fence():
                 continue
+            if self._try_display_math():
+                continue
             if self._try_table():
                 continue
             if self._try_heading():
@@ -366,6 +447,50 @@ class Converter:
         self.out.append("")
         if lang:
             pass  # language recorded but not syntax-highlighted
+        return True
+
+    def _try_display_math(self):
+        """
+        A $$ block that starts its own line.
+
+        Handled here as well as inline so that a blank line inside the maths
+        does not end the paragraph and split the block in half.
+        """
+        line = self.lines[self.i]
+        stripped = line.strip()
+        if not stripped.startswith("$$"):
+            return False
+
+        # $$ ... $$ all on one line
+        rest = stripped[2:]
+        if rest.rstrip().endswith("$$") and len(rest.rstrip()) >= 2:
+            body = rest.rstrip()[:-2]
+            self.i += 1
+            out = wrap_display(body)
+            if out:
+                self.out.append(out)
+                self.out.append("")
+            return True
+
+        body = []
+        if rest.strip():
+            body.append(rest)
+        self.i += 1
+        while self.i < len(self.lines):
+            cur = self.lines[self.i]
+            if "$$" in cur:
+                before = cur.split("$$", 1)[0]
+                if before.strip():
+                    body.append(before)
+                self.i += 1
+                break
+            body.append(cur)
+            self.i += 1
+
+        out = wrap_display("\n".join(body))
+        if out:
+            self.out.append(out)
+            self.out.append("")
         return True
 
     def _try_heading(self):
@@ -556,6 +681,7 @@ class Converter:
                 or QUOTE_RE.match(line)
                 or ULIST_RE.match(line)
                 or OLIST_RE.match(line)
+                or line.strip().startswith("$$")
             ):
                 break
             if "|" in line and self.i + 1 < len(self.lines) and TABLE_SEP_RE.match(
@@ -569,7 +695,15 @@ class Converter:
                 self.i += 1
             return
 
-        pieces = [self.inline(line) for line in buf]
+        # Protect maths across the WHOLE paragraph first: a $$...$$ block runs
+        # over several lines, so protecting each line on its own would never
+        # match it and the maths would get escaped into literal text. After
+        # stashing, each block is a single placeholder token on one line, so
+        # splitting for line breaks is then safe.
+        vault = Vault()
+        protected = protect_math_and_code("\n".join(buf), vault)
+        pieces = [convert_protected(line, self.ctx, vault)
+                  for line in protected.split("\n")]
 
         # Images and display maths are blocks: a "\\" before or after one is
         # either a LaTeX error or an ugly gap, so they interrupt the run of

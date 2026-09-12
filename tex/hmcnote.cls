@@ -290,7 +290,9 @@
 % =========================================================================
 %  Code
 % =========================================================================
-\RequirePackage{fancyvrb}
+% fvextra, not bare fancyvrb: md2tex emits Verbatim[breaklines=true] so long
+% code lines wrap instead of running off the page, and only fvextra has it.
+\RequirePackage{fvextra}
 \newtcolorbox{codebox}[1][]{
   enhanced, breakable,
   colback  = CodeFill,

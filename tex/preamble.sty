@@ -72,6 +72,24 @@
 \providecommand{\expval}[1]{\left\langle #1 \right\rangle}
 \providecommand{\dd}{\mathop{}\!d}
 
+% ---- \sqrt[]{x} with an EMPTY index ------------------------------------
+% Your `sq` snippet produces \sqrt[]{ }. MathJax shrugs off the empty index;
+% unicode-math feeds it to \ifnum and dies with "Improper alphabetic
+% constant". Treat [] as "no index". Done at \begin{document} because
+% unicode-math only installs its own \sqrt when the maths font is set up.
+\AtBeginDocument{%
+  \NewCommandCopy\hmc@origsqrt\sqrt
+  \RenewDocumentCommand\sqrt{o m}{%
+    \IfValueTF{#1}%
+      {\if\relax\detokenize{#1}\relax
+         \hmc@origsqrt{#2}%
+       \else
+         \hmc@origsqrt[#1]{#2}%
+       \fi}%
+      {\hmc@origsqrt{#2}}%
+  }%
+}
+
 % Common shorthands
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\C}{\mathbb{C}}

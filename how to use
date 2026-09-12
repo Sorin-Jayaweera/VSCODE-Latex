@@ -1,0 +1,5 @@
+Ctrl+Alt+V	Live preview beside the editor — your macros render, because .vscode/settings.json feeds preamble.sty to KaTeX
+Ctrl+Alt+B	Build this note → PDF in out/
+Ctrl+Alt+M	Math preview panel — follows your cursor's equation
+Ctrl+Alt+J	Jump cursor → PDF; Ctrl+click in the PDF jumps back
+Ctrl+Alt+S	Wrap selection (the old ${VISUAL} snippets)
