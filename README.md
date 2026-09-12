@@ -14,9 +14,20 @@ Already installed on this machine:
 
 | Extension | What it does here |
 | --- | --- |
+| **Sorin Latex Suite Auto** | Local auto-expander for your Obsidian Latex Suite snippets |
 | **LaTeX Workshop** | Builds `.tex`, PDF beside the editor, SyncTeX, hover maths preview |
-| **HyperSnips** (+ its helper **hscopes**) | Runs your ported Latex Suite snippets |
+| **HyperSnips** (+ its helper **hscopes**) | Fallback/editor for the generated `.hsnips` files |
 | **Obsidian Embeds Preview** | Shows `![[Pasted image ...]]` images in the markdown preview. Lives in this repo at `tools/obsidian-preview/` |
+
+If you ever need to reinstall the snippet auto-expander:
+
+```bash
+python tools/latex-suite-auto/pack_vsix.py
+```
+
+```bash
+code --install-extension tools/latex-suite-auto/latex-suite-auto-0.1.0.vsix --force
+```
 
 If you ever need to reinstall the embeds extension:
 
@@ -54,8 +65,9 @@ existing `[ ... ]`.
 
 `File → Open Folder` → this folder, then:
 
-1. Open any note under `notes/`. Inside `$ $` type `ptl` → `\partial`. On an
-   empty line type `dm` → a `$$ \begin{align} … \end{align} $$` block.
+1. Open any note under `notes/`. In text, type `mk` -> `$...$`; type `dm` on an
+   empty line -> a `$$ \begin{align} ... \end{align} $$` block. Inside `$ $`,
+   type `dint` -> `\int_{0}^{\infty}` with tabstops.
 2. `Ctrl+Alt+V` → preview beside the note, with maths **and images**.
 3. `Ctrl+Alt+B` → the PDF appears in `pdfs/` next to the note.
 
@@ -143,9 +155,14 @@ enough: every build refreshes the installed copy.
 
 ## 5. Snippets
 
-All of your Latex Suite snippets are ported into [`hsnips/`](hsnips/) and
-behave as in Obsidian: auto-expanding, maths-only ones only in maths, tabstops
-in the same order (`//` puts you in the numerator first).
+All of your Latex Suite snippets are exported into
+[`tools/latex-suite-auto/snippets.generated.json`](tools/latex-suite-auto/snippets.generated.json)
+and installed as the local **Sorin Latex Suite Auto** extension. They behave as
+in Obsidian: auto-expanding, maths-only ones only in maths, tabstops in the same
+order (`//` puts you in the numerator first).
+
+The same snippets are also ported into [`hsnips/`](hsnips/) so HyperSnips can
+serve as a fallback and so the generated files remain inspectable.
 
 **Selection wrappers** (`U` underbrace, `C` cancel, `S` sqrt, brackets): select
 the expression, `Ctrl+Alt+S`, pick one. HyperSnips can't do Latex Suite's
@@ -158,20 +175,12 @@ the expression, `Ctrl+Alt+S`, pick one. HyperSnips can't do Latex Suite's
 **After adding snippets in Obsidian:**
 
 ```bash
-python build/port_snippets.py --install
+python build/update_snippets.py
 ```
 
-```bash
-node build/test_snippets.js
-```
-
-The second command loads HyperSnips' **own** parser and matcher and types test
-cases, so a broken snippet file shows up here instead of silently doing nothing
-in the editor. Add a case to the `CASES` list if you want a snippet guarded.
-
-`--install` also copies the snippets into HyperSnips' own folder so they work
-in any VS Code window. Your previous HyperSnips `latex.hsnips` from before this
-setup was backed up to `build/backup-original-global-hsnips/`.
+That command regenerates HyperSnips files, tests them, regenerates the local
+auto-expander table, repackages the VSIX, and reinstalls it. Reload VS Code
+afterward: `Ctrl+Shift+P` -> **Developer: Reload Window**.
 
 ---
 
@@ -222,11 +231,14 @@ vscode latex/
 ├── tex/                      hmcnote.cls (look) + preamble.sty (macros)
 ├── hsnips/                   generated snippets
 ├── notes/                    your notes; PDFs build into each folder's pdfs/
+├── tools/latex-suite-auto/   the Latex Suite auto-expander extension
 ├── tools/obsidian-preview/   the ![[embed]] preview extension
 ├── build/
 │   ├── build.py              note -> <folder>/pdfs/<name>.pdf
 │   ├── md2tex.py             Obsidian markdown -> LaTeX
 │   ├── port_snippets.py      Latex Suite -> HyperSnips
+│   ├── export_latex_suite_auto.py  Latex Suite -> local extension JSON
+│   ├── update_snippets.py    regenerate, test, package, reinstall snippets
 │   ├── manual_snippets.hsnips  your hand-written snippets
 │   ├── test_snippets.js      runs HyperSnips' real code on the snippets
 │   ├── install_class.py      puts the class where TeX finds it
@@ -258,9 +270,10 @@ vscode latex/
 **A note won't build.** The error and log path are printed. The generated LaTeX
 is in `.build/` at the same relative path as the note.
 
-**Snippets stopped firing.** Run `node build/test_snippets.js`. If that passes,
-check HyperSnips is enabled and the conflicting extensions in §1 are disabled,
-then reload the window.
+**Snippets stopped firing.** First reload VS Code:
+`Ctrl+Shift+P` -> **Developer: Reload Window**. If they still do not fire, run
+`python build/update_snippets.py`, reload again, and make sure **Sorin Latex
+Suite Auto** is enabled. HyperSnips is only the fallback now.
 
 **Images missing in the preview.** Check *Obsidian Embeds Preview* is enabled,
 then reload the window.

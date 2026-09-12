@@ -1,5 +1,6 @@
 {
   "recommendations": [
+    "sorin-local.latex-suite-auto",
     "james-yu.latex-workshop",
     "draivin.hsnips",
     "draivin.hscopes",

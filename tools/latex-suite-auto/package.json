@@ -1,0 +1,37 @@
+{
+  "name": "latex-suite-auto",
+  "displayName": "Sorin Latex Suite Auto",
+  "description": "Local auto-expander for Sorin's Obsidian Latex Suite snippets in VS Code.",
+  "publisher": "sorin-local",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sorin-Jayaweera/VSCODE-Latex.git"
+  },
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": ["Snippets"],
+  "activationEvents": ["onLanguage:markdown", "onLanguage:latex", "onLanguage:tex", "onLanguage:plaintext"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "latexSuiteAuto.reload",
+        "title": "Reload Latex Suite Auto Snippets",
+        "category": "Latex Suite Auto"
+      }
+    ],
+    "configuration": {
+      "title": "Latex Suite Auto",
+      "properties": {
+        "latexSuiteAuto.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Latex Suite-style automatic snippet expansion."
+        }
+      }
+    }
+  }
+}

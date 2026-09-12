@@ -1,9 +1,13 @@
 {
   // =====================================================================
-  //  HyperSnips -- your Latex Suite snippets
-  //  HyperSnips expands ${workspaceFolder} here. Outside this folder, the
-  //  copy installed by `port_snippets.py --install` is used instead.
+  //  Snippets
+  //  Sorin Latex Suite Auto is the primary auto-expander. It reads the
+  //  generated table in tools/latex-suite-auto/snippets.generated.json and
+  //  replaces Latex Suite triggers as you type.
+  //
+  //  HyperSnips remains configured as a fallback/editor for .hsnips files.
   // =====================================================================
+  "latexSuiteAuto.enabled": true,
   "hsnips.hsnipsPath": "${workspaceFolder}/hsnips",
 
   // =====================================================================
