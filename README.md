@@ -166,6 +166,8 @@ serve as a fallback and so the generated files remain inspectable.
 
 Tabstops use VS Code's native snippet navigation. After `der`, `//`, `dint`,
 etc. expand, press `Tab` / `Shift+Tab` to move through the important fields.
+The workspace disables normal suggestion popups for Markdown/LaTeX so Tab
+does not accept completions like `align` or random word continuations.
 
 **Selection wrappers** (`U` underbrace, `C` cancel, `S` sqrt, brackets): select
 the expression, `Ctrl+Alt+S`, pick one. HyperSnips can't do Latex Suite's

@@ -47,11 +47,22 @@
     // This wins over HyperSnips' Tab binding while a native snippet is active.
     "key": "tab",
     "command": "jumpToNextSnippetPlaceholder",
-    "when": "editorTextFocus && inSnippetMode && hasNextTabstop && !suggestWidgetVisible"
+    "when": "editorTextFocus && inSnippetMode && hasNextTabstop"
   },
   {
     "key": "shift+tab",
     "command": "jumpToPrevSnippetPlaceholder",
-    "when": "editorTextFocus && inSnippetMode && hasPrevTabstop && !suggestWidgetVisible"
+    "when": "editorTextFocus && inSnippetMode && hasPrevTabstop"
+  },
+  {
+    // Stop Tab from accepting suggestions while editing notes.
+    "key": "tab",
+    "command": "-acceptSelectedSuggestion",
+    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
+  },
+  {
+    "key": "tab",
+    "command": "-acceptAlternativeSelectedSuggestion",
+    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
   }
 ]

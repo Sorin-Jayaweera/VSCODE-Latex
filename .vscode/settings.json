@@ -105,15 +105,25 @@
   // =====================================================================
   //  Editing
   // =====================================================================
+  "editor.inlineSuggest.enabled": false,
+  "editor.acceptSuggestionOnCommitCharacter": false,
+  "editor.acceptSuggestionOnEnter": "off",
+  "editor.tabCompletion": "off",
+  "editor.suggestOnTriggerCharacters": false,
+  "editor.suggest.preview": false,
   "[latex]": {
     "editor.wordWrap": "on",
+    "editor.quickSuggestions": { "other": false, "comments": false, "strings": false },
     "editor.suggest.showWords": false,
-    "editor.tabCompletion": "onlySnippets"
+    "editor.tabCompletion": "off",
+    "editor.suggestOnTriggerCharacters": false
   },
   "[markdown]": {
     "editor.wordWrap": "on",
-    "editor.quickSuggestions": { "other": true, "comments": false, "strings": false },
-    "editor.suggest.showWords": false
+    "editor.quickSuggestions": { "other": false, "comments": false, "strings": false },
+    "editor.suggest.showWords": false,
+    "editor.tabCompletion": "off",
+    "editor.suggestOnTriggerCharacters": false
   },
 
   // The notes/ tree is 2000+ files; keep search and file watching sane.
