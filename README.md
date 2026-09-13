@@ -16,7 +16,7 @@ Already installed on this machine:
 | --- | --- |
 | **Sorin Latex Suite Auto** | Local auto-expander for your Obsidian Latex Suite snippets |
 | **LaTeX Workshop** | Builds `.tex`, PDF beside the editor, SyncTeX, hover maths preview |
-| **HyperSnips** (+ its helper **hscopes**) | Fallback/editor for the generated `.hsnips` files |
+| **HyperSnips** (+ its helper **hscopes**) | Optional parser/test tool for generated `.hsnips`; disabled for live expansion here |
 | **Obsidian Embeds Preview** | Shows `![[Pasted image ...]]` images in the markdown preview. Lives in this repo at `tools/obsidian-preview/` |
 
 If you ever need to reinstall the snippet auto-expander:
@@ -161,8 +161,10 @@ and installed as the local **Sorin Latex Suite Auto** extension. They behave as
 in Obsidian: auto-expanding, maths-only ones only in maths, tabstops in the same
 order (`//` puts you in the numerator first).
 
-The same snippets are also ported into [`hsnips/`](hsnips/) so HyperSnips can
-serve as a fallback and so the generated files remain inspectable.
+The same snippets are also ported into [`hsnips/`](hsnips/) so the generated
+files remain inspectable and testable. In this workspace HyperSnips is pointed
+at [`hsnips-disabled/`](hsnips-disabled/) so it does not double-expand the same
+triggers as **Sorin Latex Suite Auto**.
 
 Tabstops use VS Code's native snippet navigation. After `der`, `//`, `dint`,
 etc. expand, press `Tab` / `Shift+Tab` to move through the important fields.
@@ -278,7 +280,8 @@ is in `.build/` at the same relative path as the note.
 **Snippets stopped firing.** First reload VS Code:
 `Ctrl+Shift+P` -> **Developer: Reload Window**. If they still do not fire, run
 `python build/update_snippets.py`, reload again, and make sure **Sorin Latex
-Suite Auto** is enabled. HyperSnips is only the fallback now.
+Suite Auto** is enabled. HyperSnips should stay pointed at `hsnips-disabled/`
+in this workspace; otherwise snippets such as `dint` can expand twice.
 
 **Images missing in the preview.** Check *Obsidian Embeds Preview* is enabled,
 then reload the window.

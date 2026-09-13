@@ -5,10 +5,11 @@
   //  generated table in tools/latex-suite-auto/snippets.generated.json and
   //  replaces Latex Suite triggers as you type.
   //
-  //  HyperSnips remains configured as a fallback/editor for .hsnips files.
+  //  HyperSnips is pointed at an empty folder here so it does not double-fire
+  //  the same triggers. The .hsnips files remain in hsnips/ for reference.
   // =====================================================================
   "latexSuiteAuto.enabled": true,
-  "hsnips.hsnipsPath": "${workspaceFolder}/hsnips",
+  "hsnips.hsnipsPath": "${workspaceFolder}/hsnips-disabled",
 
   // =====================================================================
   //  LaTeX Workshop
